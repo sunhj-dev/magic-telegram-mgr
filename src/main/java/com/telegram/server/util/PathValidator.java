@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  * 路径验证和处理工具类
  * 提供路径验证、目录创建、权限检查和路径规范化功能
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-19
  */
 @Component

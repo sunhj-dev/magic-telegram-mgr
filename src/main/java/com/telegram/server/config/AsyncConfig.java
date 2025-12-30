@@ -15,7 +15,7 @@ import java.util.concurrent.ThreadPoolExecutor;
  * 异步处理配置类
  * 配置消息处理的线程池，优化大量群组消息的处理性能
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-19
  */
 @Configuration

@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
  * 分片大小异常处理器
  * 处理分片大小超限的情况，提供降级和优化建议
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-20
  */
 public class ShardSizeExceptionHandler {

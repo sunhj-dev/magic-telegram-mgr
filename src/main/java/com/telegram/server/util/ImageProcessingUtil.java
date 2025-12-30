@@ -25,7 +25,7 @@ import java.util.Base64;
  * - 小于1MB的图片：转换为Base64编码存储在MongoDB中
  * - 大于1MB的图片：只存储文件路径，文件保存在本地
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-19
  */
 @Component

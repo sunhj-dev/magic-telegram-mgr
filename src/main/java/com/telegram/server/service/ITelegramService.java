@@ -11,7 +11,7 @@ import java.util.Map;
  * - 会话状态管理
  * - 账号生命周期管理
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-20
  */
 public interface ITelegramService {

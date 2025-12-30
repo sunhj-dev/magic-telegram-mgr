@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
  * MongoDB异常处理器
  * 处理MongoDB操作失败的情况，提供重试和恢复策略
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-20
  */
 public class MongoExceptionHandler {

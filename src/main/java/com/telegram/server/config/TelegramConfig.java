@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
  * Telegram相关配置类
  * 包含TDLight客户端配置、时区配置、重试配置和路径配置
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-19
  */
 @Configuration

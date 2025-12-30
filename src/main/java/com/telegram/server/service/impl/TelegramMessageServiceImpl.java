@@ -51,7 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * - 智能去重避免重复处理
  * - 分页查询控制内存使用
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-19
  */
 @Service
@@ -122,7 +122,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param imageMimeType 图片MIME类型
      * @param imageStatus 图片处理状态
      * @return 更新结果的CompletableFuture
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.19
      */
     @Async("messageProcessingExecutor")

@@ -94,10 +94,10 @@ telegram:
   
   # 原有配置保持不变
   session:
-    path: /Users/liubo/Downloads/telegram-session  # 使用系统临时目录，主要依赖MongoDB存储
+    path: /Users/sunhj/Downloads/telegram-session  # 使用系统临时目录，主要依赖MongoDB存储
     downloads:
-      path: /Users/liubo/Downloads/telegram-downloads  # 下载文件临时目录
-      temp-path: /Users/liubo/Downloads/telegram-downloads/temp  # 下载临时目录
+      path: /Users/sunhj/Downloads/telegram-downloads  # 下载文件临时目录
+      temp-path: /Users/sunhj/Downloads/telegram-downloads/temp  # 下载临时目录
     
     # Session存储配置
     storage:

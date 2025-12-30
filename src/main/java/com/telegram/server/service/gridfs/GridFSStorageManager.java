@@ -32,7 +32,7 @@ import com.mongodb.client.gridfs.model.GridFSFile;
  * GridFS存储管理器
  * 使用GridFS替代自定义分片机制，提供统一的session数据存储
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-20
  */
 @Service

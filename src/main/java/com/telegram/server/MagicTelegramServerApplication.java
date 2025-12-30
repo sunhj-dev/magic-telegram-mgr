@@ -10,7 +10,7 @@ import org.springframework.context.annotation.ComponentScan;
  * 这是Spring Boot应用的入口点，负责启动整个Telegram消息监听服务。
  * 该应用提供了Telegram群消息的实时监听和管理功能。
  * 
- * @author liubo
+ * @author sunhj
  * @since 2025-08-05
  */
 @SpringBootApplication

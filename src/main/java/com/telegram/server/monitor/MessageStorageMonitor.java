@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * 消息存储监控组件
  * 用于监控和统计Telegram消息存储的性能指标
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-19
  */
 @Component

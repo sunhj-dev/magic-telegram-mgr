@@ -1,6 +1,6 @@
 /**
  * Telegram管理系统主要逻辑
- * @author liubo
+ * @author sunhj
  * @date 2025-08-21
  */
 

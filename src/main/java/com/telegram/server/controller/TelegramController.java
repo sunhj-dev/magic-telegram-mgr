@@ -23,7 +23,7 @@ import java.util.Map;
  * API路径前缀：/api/telegram
  * 支持跨域访问，适用于前端Web应用调用
  * 
- * @author liubo
+ * @author sunhj
  * @version 1.0
  * @since 2025-08-05
  */
@@ -344,7 +344,7 @@ public class TelegramController {
      *         - summary: 数据统计摘要
      *         - issues: 发现的数据问题
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-20
      */
     @GetMapping("/session/check")

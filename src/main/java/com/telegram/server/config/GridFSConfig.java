@@ -13,7 +13,7 @@ import org.springframework.data.mongodb.gridfs.GridFsTemplate;
  * GridFS配置类
  * 配置GridFS相关的Bean和服务
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-19
  */
 @Configuration

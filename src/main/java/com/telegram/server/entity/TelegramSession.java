@@ -27,7 +27,7 @@ import java.util.Map;
  * - 支持多个服务实例同时访问
  * - 提供session锁定机制防止冲突
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-11
  */
 @Document(collection = "telegram_sessions")

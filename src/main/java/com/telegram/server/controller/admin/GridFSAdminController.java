@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  * GridFS管理控制器
  * 提供GridFS数据完整性检查和管理功能
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-19
  */
 @RestController

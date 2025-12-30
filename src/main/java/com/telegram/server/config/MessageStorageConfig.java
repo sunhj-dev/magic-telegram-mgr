@@ -12,7 +12,7 @@ import java.util.concurrent.ThreadPoolExecutor;
  * 消息存储配置类
  * 用于配置Telegram消息存储的相关参数
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-19
  */
 @Configuration

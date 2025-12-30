@@ -33,7 +33,7 @@ import com.telegram.server.util.TimeZoneUtil;
  * - 支持时间范围查询
  * - 优化存储结构减少空间占用
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-19
  */
 @Document(collection = "telegram_messages")

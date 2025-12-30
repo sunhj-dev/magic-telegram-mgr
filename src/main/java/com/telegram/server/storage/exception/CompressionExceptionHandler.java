@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
  * 压缩异常处理器
  * 处理数据压缩失败的情况，提供降级和重试策略
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-20
  */
 public class CompressionExceptionHandler {

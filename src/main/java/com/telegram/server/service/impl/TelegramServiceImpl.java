@@ -72,7 +72,7 @@ import java.time.Instant;
  * 4. 如需要，提交两步验证密码
  * 5. 完成认证，开始消息监听
  * 
- * @author liubo
+ * @author sunhj
  * @version 1.0
  * @since 2025.08.01
  */
@@ -294,14 +294,14 @@ public class TelegramServiceImpl implements ITelegramService {
      * 优先从MongoDB中查找可用的session配置，如果没有找到则回退到配置文件。
      * 支持集群环境下的配置共享和负载均衡。
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025.08.11
      */
     /**
      * 从MongoDB加载配置信息
      * 优先从MongoDB获取可用session，如果没有则回退到配置文件
      * 
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void loadConfigFromMongoDB() {
@@ -327,7 +327,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 从可用的session中加载配置
      * 
      * @return 是否成功加载
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private boolean loadFromAvailableSession() {
@@ -351,7 +351,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 从session设置配置信息
      * 
      * @param session Telegram会话
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setConfigurationFromSession(TelegramSession session) {
@@ -369,7 +369,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 激活session并恢复session文件
      * 
      * @param session Telegram会话
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void activateAndRestoreSession(TelegramSession session) {
@@ -383,7 +383,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 如果配置已加载，则迁移到MongoDB
      * 
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void migrateConfigIfLoaded() {
@@ -398,7 +398,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 在服务启动时从持久化存储中读取API配置信息，
      * 如果配置文件存在且有效，则加载到内存中使用。
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     /**
@@ -419,7 +419,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 将从配置文件加载的配置信息迁移到MongoDB中，
      * 同时保存本地session文件数据。
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025.08.11
      */
     private void migrateConfigToMongoDB() {
@@ -448,7 +448,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 在认证成功后将当前session数据保存到MongoDB中，
      * 确保集群环境下的session数据同步。
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025.08.11
      */
     private void saveSessionToMongoDB() {
@@ -533,7 +533,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 6. 存储到MongoDB数据库
      * 
      * @param update 新消息更新事件，包含完整的消息信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void handleNewMessage(TdApi.UpdateNewMessage update) {
@@ -558,7 +558,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param message 消息对象
      * @return 如果消息类型支持则返回true，否则返回false
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private boolean isMessageTypeSupported(TdApi.Message message) {
@@ -571,7 +571,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 获取聊天信息并处理消息
      * 
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void fetchChatAndProcessMessage(TdApi.Message message) {
@@ -589,7 +589,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param message 消息对象
      * @param chat 聊天对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void processMessageWithChat(TdApi.Message message, TdApi.Chat chat) {
@@ -624,7 +624,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param chatTitle 聊天标题
      * @param messageText 消息文本
      * @return 消息JSON对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private ObjectNode createMessageJsonObject(TdApi.Message message, TdApi.Chat chat, String chatTitle, String messageText) {
@@ -670,7 +670,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param message 消息对象
      * @param chatTitle 聊天标题
      * @param messageText 消息文本
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setBasicMessageInfo(ObjectNode messageJson, TdApi.Message message, String chatTitle, String messageText) {
@@ -689,7 +689,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param chat 聊天对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setChatTypeInfo(ObjectNode messageJson, TdApi.Chat chat) {
@@ -712,7 +712,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setTimeInfo(ObjectNode messageJson, TdApi.Message message) {
@@ -735,7 +735,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     /**
@@ -745,7 +745,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param userId 用户ID
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setSafeUserInfo(ObjectNode messageJson, long userId) {
@@ -780,7 +780,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param userId 用户ID
      * @return 用户名称，如果获取失败返回null
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private String getSafeUserName(long userId) {
@@ -816,7 +816,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param user TDLib用户对象
      * @return 用户显示名称
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private String buildUserDisplayName(TdApi.User user) {
@@ -845,7 +845,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param message TDLib消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setSenderInfo(ObjectNode messageJson, TdApi.Message message) {
@@ -875,7 +875,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setMessageTypeInfo(ObjectNode messageJson, TdApi.Message message) {
@@ -888,7 +888,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param message 消息对象
      * @return 消息内容类型字符串
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private String getMessageContentType(TdApi.Message message) {
@@ -925,7 +925,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setReplyInfo(ObjectNode messageJson, TdApi.Message message) {
@@ -944,7 +944,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setForwardInfo(ObjectNode messageJson, TdApi.Message message) {
@@ -963,7 +963,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setMessageStatus(ObjectNode messageJson, TdApi.Message message) {
@@ -979,7 +979,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setThreadAndAlbumInfo(ObjectNode messageJson, TdApi.Message message) {
@@ -1003,7 +1003,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setInteractionInfo(ObjectNode messageJson, TdApi.Message message) {
@@ -1039,7 +1039,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param messageText 消息文本
      * @param contentType 内容类型
      * @param messageJson 消息JSON对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void saveMessageToMongoDB(TdApi.Message message, TdApi.Chat chat, String messageText, String contentType, ObjectNode messageJson) {
@@ -1065,7 +1065,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 创建TelegramMessage实体
      * @return TelegramMessage实体
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private TelegramMessage createTelegramMessageEntity() {
@@ -1077,7 +1077,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param telegramMessage TelegramMessage实体
      * @param message Telegram消息对象
      * @param chat 聊天对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setBasicMessageInfo(TelegramMessage telegramMessage, TdApi.Message message, TdApi.Chat chat) {
@@ -1091,7 +1091,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 设置聊天类型信息
      * @param telegramMessage TelegramMessage实体
      * @param chat 聊天对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setChatTypeInfo(TelegramMessage telegramMessage, TdApi.Chat chat) {
@@ -1113,7 +1113,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 设置发送者信息
      * @param telegramMessage TelegramMessage实体
      * @param message Telegram消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     /**
@@ -1122,7 +1122,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param telegramMessage Telegram消息实体
      * @param message TDLib消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void setSenderInfo(TelegramMessage telegramMessage, TdApi.Message message) {
@@ -1153,7 +1153,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param telegramMessage TelegramMessage实体
      * @param messageText 消息文本
      * @param contentType 内容类型
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setMessageContentInfo(TelegramMessage telegramMessage, String messageText, String contentType) {
@@ -1164,7 +1164,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 设置时间信息
      * @param telegramMessage TelegramMessage实体
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setTimeInfo(TelegramMessage telegramMessage) {
@@ -1178,7 +1178,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 设置回复信息
      * @param telegramMessage TelegramMessage实体
      * @param message Telegram消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setReplyInfo(TelegramMessage telegramMessage, TdApi.Message message) {
@@ -1192,7 +1192,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 设置转发信息
      * @param telegramMessage TelegramMessage实体
      * @param message Telegram消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setForwardInfo(TelegramMessage telegramMessage, TdApi.Message message) {
@@ -1206,7 +1206,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 设置消息状态信息
      * @param telegramMessage TelegramMessage实体
      * @param message Telegram消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setMessageStatusInfo(TelegramMessage telegramMessage, TdApi.Message message) {
@@ -1221,7 +1221,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 设置线程和专辑信息
      * @param telegramMessage TelegramMessage实体
      * @param message Telegram消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setThreadAndAlbumInfo(TelegramMessage telegramMessage, TdApi.Message message) {
@@ -1237,7 +1237,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 设置交互信息
      * @param telegramMessage TelegramMessage实体
      * @param message Telegram消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setInteractionInfo(TelegramMessage telegramMessage, TdApi.Message message) {
@@ -1251,7 +1251,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 设置原始JSON数据
      * @param telegramMessage TelegramMessage实体
      * @param messageJson 消息JSON对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void setRawJsonData(TelegramMessage telegramMessage, ObjectNode messageJson) {
@@ -1262,7 +1262,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 异步保存消息
      * @param telegramMessage TelegramMessage实体
      * @param message Telegram消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void saveMessageAsync(TelegramMessage telegramMessage, TdApi.Message message) {
@@ -1539,7 +1539,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 3. 如果都满足，则自动初始化客户端
      * 4. TDLight会自动从临时恢复的session文件恢复登录状态
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025.08.05
      */
     /**
@@ -1548,7 +1548,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 检查API配置和MongoDB中的session数据，如果存在已认证的session则自动恢复，
      * 否则等待首次认证。包括路径验证、目录创建、客户端配置等步骤。
      * 
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void autoInitializeClient() {
@@ -1580,7 +1580,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 验证API配置
      * @return 配置是否有效
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private boolean validateApiConfiguration() {
@@ -1594,7 +1594,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 检查MongoDB中的session数据
      * @return session信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private SessionInfo checkMongoSessionData() {
@@ -1613,7 +1613,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 检查指定手机号的session
      * @param phone 手机号
      * @return session信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private SessionInfo checkSpecificPhoneSession(String phone) {
@@ -1641,7 +1641,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 查找可用的已认证session
      * @return session信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private SessionInfo findAvailableSession() {
@@ -1669,7 +1669,7 @@ public class TelegramServiceImpl implements ITelegramService {
     
     /**
      * 创建session目录
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void createSessionDirectory() {
@@ -1691,7 +1691,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 从MongoDB恢复session数据
      * @param sessionInfo session信息
      * @return 更新后的session信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private SessionInfo restoreSessionFromMongoDB(SessionInfo sessionInfo) {
@@ -1728,7 +1728,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 验证恢复的session文件
      * @param sessionInfo session信息
      * @return 更新后的session信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private SessionInfo validateRestoredSession(SessionInfo sessionInfo) {
@@ -1770,7 +1770,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 初始化TDLib客户端
      * @param sessionInfo session信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void initializeTDLibClient(SessionInfo sessionInfo) {
@@ -1805,7 +1805,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 创建TDLib设置
      * @return TDLib设置
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private TDLibSettings createTDLibSettings() {
@@ -1816,7 +1816,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 创建TDLib目录
      * @param settings TDLib设置
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void createTDLibDirectories(TDLibSettings settings) {
@@ -1837,7 +1837,7 @@ public class TelegramServiceImpl implements ITelegramService {
     
     /**
      * 验证路径配置
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void validatePaths() {
@@ -1865,7 +1865,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param databaseDir 数据库目录
      * @param downloadsDir 下载目录
      * @param downloadsTempDir 临时下载目录
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void createDirectoriesWithRetry(Path sessionDir, Path databaseDir, Path downloadsDir, Path downloadsTempDir) {
@@ -1894,7 +1894,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 构建Telegram客户端
      * @param settings TDLib设置
      * @return 客户端构建器
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private SimpleTelegramClientBuilder buildTelegramClient(TDLibSettings settings) {
@@ -1912,7 +1912,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 确定使用的手机号
      * @param sessionInfo session信息
      * @return 手机号
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String determinePhoneNumber(SessionInfo sessionInfo) {
@@ -1930,7 +1930,7 @@ public class TelegramServiceImpl implements ITelegramService {
     
     /**
      * Session信息内部类
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private static class SessionInfo {
@@ -1944,7 +1944,7 @@ public class TelegramServiceImpl implements ITelegramService {
      */
     /**
      * 初始化客户端
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void initializeClient() {
@@ -1976,7 +1976,7 @@ public class TelegramServiceImpl implements ITelegramService {
     
     /**
      * 初始化TDLib工厂
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void initializeTDLibFactory() throws UnsupportedNativeLibraryException {
@@ -1990,7 +1990,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 获取API配置
      * @return API配置信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private ApiConfig getApiConfiguration() {
@@ -2005,7 +2005,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 恢复会话数据
      * @param phoneNumber 手机号
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void restoreSessionData(String phoneNumber) {
@@ -2030,7 +2030,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 创建并配置TDLib设置
      * @param apiConfig API配置
      * @return TDLib设置
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private TDLibSettings createAndConfigureTDLibSettings(ApiConfig apiConfig) {
@@ -2046,7 +2046,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 为客户端创建TDLib目录
      * @param settings TDLib设置
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void createTDLibDirectoriesForClient(TDLibSettings settings) {
@@ -2075,7 +2075,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 构建并配置客户端
      * @param settings TDLib设置
      * @param phoneNumber 手机号
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void buildAndConfigureClient(TDLibSettings settings, String phoneNumber) {
@@ -2094,7 +2094,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 添加更新处理器
      * @param clientBuilder 客户端构建器
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void addUpdateHandlers(SimpleTelegramClientBuilder clientBuilder) {
@@ -2108,7 +2108,7 @@ public class TelegramServiceImpl implements ITelegramService {
     
     /**
      * API配置信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private static class ApiConfig {
@@ -2318,7 +2318,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param content 消息内容对象
      * @return 消息的文本描述
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     /**
@@ -2326,7 +2326,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param content 消息内容对象
      * @return 消息文本
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String getMessageText(TdApi.MessageContent content) {
@@ -2352,7 +2352,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageText 文本消息对象
      * @return 文本内容
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String getTextMessageContent(TdApi.MessageText messageText) {
@@ -2364,7 +2364,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param photo 图片消息对象
      * @return 图片消息描述
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String getPhotoMessageContent(TdApi.MessagePhoto photo) {
@@ -2381,7 +2381,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param photoInfo 图片信息构建器
      * @param photo 图片消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void addPhotoSizeInfo(StringBuilder photoInfo, TdApi.MessagePhoto photo) {
@@ -2397,7 +2397,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param photoInfo 图片信息构建器
      * @param photo 图片消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void addPhotoCaptionInfo(StringBuilder photoInfo, TdApi.MessagePhoto photo) {
@@ -2411,7 +2411,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param video 视频消息对象
      * @return 视频消息描述
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String getVideoMessageContent(TdApi.MessageVideo video) {
@@ -2423,7 +2423,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param document 文档消息对象
      * @return 文档消息描述
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String getDocumentMessageContent(TdApi.MessageDocument document) {
@@ -2434,7 +2434,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 获取贴纸消息内容
      * 
      * @return 贴纸消息描述
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String getStickerMessageContent() {
@@ -2446,7 +2446,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param animation 动图消息对象
      * @return 动图消息描述
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String getAnimationMessageContent(TdApi.MessageAnimation animation) {
@@ -2458,7 +2458,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param content 消息内容对象
      * @return 未知消息类型描述
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String getUnknownMessageContent(TdApi.MessageContent content) {
@@ -2475,7 +2475,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param photoMessage 图片消息对象
      * @param message 消息对象
      * @param chat 聊天对象
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     private void handlePhotoMessage(ObjectNode messageJson, TdApi.MessagePhoto photoMessage, TdApi.Message message, TdApi.Chat chat) {
@@ -2506,7 +2506,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param photoMessage 图片消息对象
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     private void addPhotoCaption(ObjectNode messageJson, TdApi.MessagePhoto photoMessage) {
@@ -2524,7 +2524,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param largestPhoto 最大尺寸的图片
      * @param message 消息对象
      * @param chat 聊天对象
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     private void processLargestPhoto(ObjectNode messageJson, TdApi.PhotoSize largestPhoto, TdApi.Message message, TdApi.Chat chat) {
@@ -2544,7 +2544,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param largestPhoto 最大尺寸的图片
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     private void addPhotoSizeInfo(ObjectNode messageJson, TdApi.PhotoSize largestPhoto) {
@@ -2561,7 +2561,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param messageJson 消息JSON对象
      * @param largestPhoto 最大尺寸的图片
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     private void handleDownloadedPhoto(ObjectNode messageJson, TdApi.PhotoSize largestPhoto, TdApi.Message message) {
@@ -2580,7 +2580,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param largestPhoto 最大尺寸的图片
      * @param message 消息对象
      * @param chat 聊天对象
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     private void handleUndownloadedPhoto(ObjectNode messageJson, TdApi.PhotoSize largestPhoto, TdApi.Message message, TdApi.Chat chat) {
@@ -2598,7 +2598,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param localPath 图片本地路径
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     private void processDownloadedPhoto(ObjectNode messageJson, String localPath) {
@@ -2616,7 +2616,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param accountPhone 账号手机号（可为null，用于消息更新）
      * @param chatId 聊天ID（可为null，用于消息更新）
      * @param messageId 消息ID（可为null，用于消息更新）
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.19
      */
     /**
@@ -2626,7 +2626,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param accountPhone 账号手机号
      * @param chatId 聊天ID
      * @param messageId 消息ID
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void processDownloadedPhoto(ObjectNode messageJson, String localPath, 
@@ -2652,7 +2652,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param accountPhone 账号手机号
      * @param chatId 聊天ID
      * @param messageId 消息ID
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void processValidPhotoFile(ObjectNode messageJson, File photoFile, String localPath,
@@ -2680,7 +2680,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param messageJson 消息JSON对象
      * @param photoFile 图片文件对象
      * @param localPath 本地文件路径
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void extractFileBasicInfo(ObjectNode messageJson, File photoFile, String localPath) {
@@ -2699,7 +2699,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param photoFile 图片文件对象
      * @param mimeType MIME类型
      * @param isImageFile 是否为图片文件
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void setFileTypeInfo(ObjectNode messageJson, File photoFile, String mimeType, boolean isImageFile) {
@@ -2724,7 +2724,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param accountPhone 账号手机号
      * @param chatId 聊天ID
      * @param messageId 消息ID
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void processImageStorage(ObjectNode messageJson, String localPath, long fileSize,
@@ -2744,7 +2744,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param localPath 本地文件路径
      * @param fileSize 文件大小
      * @return 存储结果
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private ImageStorageResult determineStorageStrategy(ObjectNode messageJson, String localPath, long fileSize) {
@@ -2764,7 +2764,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param messageJson 消息JSON对象
      * @param localPath 本地文件路径
      * @return 存储结果
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private ImageStorageResult processBase64StorageStrategy(ObjectNode messageJson, String localPath) {
@@ -2788,7 +2788,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param messageJson 消息JSON对象
      * @param localPath 本地文件路径
      * @return 存储结果
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private ImageStorageResult processPathStorageStrategy(ObjectNode messageJson, String localPath) {
@@ -2804,7 +2804,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param messageJson 消息JSON对象
      * @param localPath 本地文件路径
      * @param e 异常对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void handleImageStorageError(ObjectNode messageJson, String localPath, Exception e) {
@@ -2815,7 +2815,7 @@ public class TelegramServiceImpl implements ITelegramService {
     
     /**
      * 图片存储结果内部类
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private static class ImageStorageResult {
@@ -2829,7 +2829,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param messageJson 消息JSON对象
      * @param localPath 本地文件路径
      * @return Base64编码的图片数据，失败时返回null
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private String processBase64Storage(ObjectNode messageJson, String localPath) {
@@ -2853,7 +2853,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param imageData 图片数据
      * @param localPath 本地文件路径
      * @param imageStatus 图片状态
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void updateImageDataInMongoDB(ObjectNode messageJson, String accountPhone, Long chatId, Long messageId,
@@ -2886,7 +2886,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param photo 图片文件对象
      * @param message 消息对象
      * @param chat 聊天对象
-     * @author liubo
+     * @author sunhj
      * @since 2025.01.05
      */
     private void downloadPhoto(ObjectNode messageJson, TdApi.File photo, TdApi.Message message, TdApi.Chat chat) {
@@ -2901,7 +2901,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param message 消息对象
      * @param chat 聊天对象
      * @param retryCount 当前重试次数（保留参数兼容性，实际使用RetryHandler）
-     * @author liubo
+     * @author sunhj
      * @since 2025.08.19
      */
     /**
@@ -2912,7 +2912,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param message 消息对象
      * @param chat 聊天对象
      * @param retryCount 重试次数
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void downloadPhotoWithRetry(ObjectNode messageJson, TdApi.File photo, TdApi.Message message, TdApi.Chat chat, int retryCount) {
@@ -2931,7 +2931,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param message 消息对象
      * @param chat 聊天对象
      * @return 重试结果
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private RetryHandler.RetryResult<Void> executePhotoDownloadWithRetry(ObjectNode messageJson, TdApi.File photo, TdApi.Message message, TdApi.Chat chat) {
@@ -2951,7 +2951,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param messageJson 消息JSON对象
      * @param message 消息对象
      * @param exception 异常信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void handleDownloadFailure(ObjectNode messageJson, TdApi.Message message, Exception exception) {
@@ -2966,7 +2966,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param messageJson 消息JSON对象
      * @param exception 异常信息
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void updateMessageJsonForFailure(ObjectNode messageJson, Exception exception) {
@@ -2978,7 +2978,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 更新MongoDB中的失败状态
      * 
      * @param message 消息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void updateMongoDBForFailure(TdApi.Message message) {
@@ -3000,7 +3000,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param message 消息对象
      * @param chat 聊天对象
      * @throws Exception 下载异常
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void downloadPhotoInternal(ObjectNode messageJson, TdApi.File photo, TdApi.Message message, TdApi.Chat chat) throws Exception {
@@ -3027,7 +3027,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param photo 图片文件对象
      * @param message 消息对象
      * @return 是否已下载完成
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private boolean checkPhotoAlreadyDownloaded(ObjectNode messageJson, TdApi.File photo, TdApi.Message message) {
@@ -3045,7 +3045,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param messageJson 消息JSON对象
      * @param photo 图片文件对象
      * @throws RuntimeException 文件无法下载时抛出异常
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void validatePhotoDownloadable(ObjectNode messageJson, TdApi.File photo) throws RuntimeException {
@@ -3061,7 +3061,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param photo 图片文件对象
      * @return 下载完成的文件对象
      * @throws Exception 下载异常
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private TdApi.File executePhotoDownload(TdApi.File photo) throws Exception {
@@ -3088,7 +3088,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param downloadedFile 下载完成的文件对象
      * @param message 消息对象
      * @throws Exception 处理异常
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void handleDownloadResult(ObjectNode messageJson, TdApi.File originalPhoto, 
@@ -3115,7 +3115,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param originalPhoto 原始图片文件对象
      * @param downloadedFile 下载完成的文件对象
      * @return 下载结果JSON对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private ObjectNode createDownloadResultJson(TdApi.File originalPhoto, TdApi.File downloadedFile) {
@@ -3131,7 +3131,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 输出下载结果
      * @param downloadResultJson 下载结果JSON对象
      * @throws Exception JSON处理异常
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void outputDownloadResult(ObjectNode downloadResultJson) throws Exception {
@@ -3145,7 +3145,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param originalPhoto 原始图片文件对象
      * @param downloadedFile 下载的文件对象
      * @throws RuntimeException 下载未完成异常
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     private void handleIncompleteDownload(TdApi.File originalPhoto, TdApi.File downloadedFile) throws RuntimeException {
@@ -3204,7 +3204,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 返回包含当前授权状态、需求标志、下一步操作指引等详细信息的Map对象
      * 
      * @return 包含授权状态详细信息的Map对象
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-05
      */
     public Map<String, Object> getAuthStatus() {
@@ -3225,7 +3225,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 创建客户端未初始化状态信息
      * 
      * @return 未初始化状态的Map对象
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     private Map<String, Object> createNotInitializedStatus() {
@@ -3245,7 +3245,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 根据当前授权状态填充状态信息
      * 
      * @param status 状态信息Map对象
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     private void populateAuthStateInfo(Map<String, Object> status) {
@@ -3268,7 +3268,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 填充已授权就绪状态信息
      * 
      * @param status 状态信息Map对象
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     private void populateReadyState(Map<String, Object> status) {
@@ -3285,7 +3285,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 填充等待手机号状态信息
      * 
      * @param status 状态信息Map对象
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     private void populateWaitPhoneState(Map<String, Object> status) {
@@ -3303,7 +3303,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 填充等待验证码状态信息
      * 
      * @param status 状态信息Map对象
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     private void populateWaitCodeState(Map<String, Object> status) {
@@ -3321,7 +3321,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 填充等待密码状态信息
      * 
      * @param status 状态信息Map对象
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     private void populateWaitPasswordState(Map<String, Object> status) {
@@ -3339,7 +3339,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 填充客户端已关闭状态信息
      * 
      * @param status 状态信息Map对象
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     private void populateClosedState(Map<String, Object> status) {
@@ -3356,7 +3356,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 填充未知状态信息
      * 
      * @param status 状态信息Map对象
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     private void populateUnknownState(Map<String, Object> status) {
@@ -3376,7 +3376,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 创建并初始化单个Telegram账号实例，准备进行API配置和认证流程。
      * 这是使用系统的第一步操作。
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     public void initializeAccount() {
@@ -3408,7 +3408,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * 停止Telegram消息监听功能，但保持客户端连接。
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     public void stopListening() {
@@ -3437,7 +3437,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 清除当前账号的所有Session数据，包括认证信息和缓存数据。
      * 清理后需要重新进行认证流程。
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-08-25
      */
     public void clearSession() {
@@ -3576,7 +3576,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 只清理真正的临时目录，不删除正在使用的session目录
      * 临时目录的特征：路径包含"telegram-session-"且不是当前正在使用的sessionPath
      * 
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-20
      */
     private void cleanupTempSessionFiles() {
@@ -3625,7 +3625,7 @@ public class TelegramServiceImpl implements ITelegramService {
      *         - summary: 数据统计摘要
      *         - issues: 发现的数据问题
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-20
      */
     /**
@@ -3638,7 +3638,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * - 健康度评估
      * 
      * @return 包含检查结果的Map对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-05
      */
     public Map<String, Object> checkSessionDataIntegrity() {
@@ -3678,7 +3678,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param stats 统计信息对象
      * @param issues 问题列表
      * @return Session详细信息列表
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private List<Map<String, Object>> processAllSessions(List<TelegramSession> allSessions, 
@@ -3712,7 +3712,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param session Session对象
      * @return Session信息Map
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private Map<String, Object> createSessionInfo(TelegramSession session) {
@@ -3732,7 +3732,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param session Session对象
      * @param stats 统计信息对象
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private void updateSessionStats(TelegramSession session, SessionIntegrityStats stats) {
@@ -3752,7 +3752,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param issues 问题列表
      * @param stats 统计信息对象
      * @return 文件信息Map
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private Map<String, Object> analyzeSessionFiles(TelegramSession session, List<String> issues, SessionIntegrityStats stats) {
@@ -3774,7 +3774,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param fileInfo 文件信息Map
      * @param issues 问题列表
      * @return 文件信息Map
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private Map<String, Object> analyzeExistingFiles(TelegramSession session, 
@@ -3816,7 +3816,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param fileInfo 文件信息Map
      * @param issues 问题列表
      * @return 文件信息Map
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private Map<String, Object> analyzeMissingFiles(TelegramSession session, 
@@ -3840,7 +3840,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 
      * @param session Session对象
      * @return 问题列表
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private List<String> validateSessionConsistency(TelegramSession session) {
@@ -3871,7 +3871,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param stats 统计信息
      * @param totalIssues 总问题数
      * @return 摘要信息Map
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private Map<String, Object> generateIntegritySummary(SessionIntegrityStats stats, int totalIssues) {
@@ -3900,7 +3900,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * Session完整性统计信息内部类
      * 
-     * @author liubo
+     * @author sunhj
      * @date 2025-08-25
      */
     private static class SessionIntegrityStats {

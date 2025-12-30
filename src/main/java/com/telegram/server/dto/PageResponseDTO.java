@@ -7,7 +7,7 @@ import java.util.List;
  * 
  * 用于Web管理系统中分页查询的响应数据封装。
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-21
  * @param <T> 数据类型
  */

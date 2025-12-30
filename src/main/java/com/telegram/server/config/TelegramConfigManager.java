@@ -34,7 +34,7 @@ import java.util.Map;
  *   "lastUpdated": "2025-01-05T10:30:00"
  * }
  * 
- * @author liubo
+ * @author sunhj
  * @since 2025.01.05
  */
 @Component

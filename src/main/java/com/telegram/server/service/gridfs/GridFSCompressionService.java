@@ -13,7 +13,7 @@ import java.util.zip.GZIPOutputStream;
  * GridFS压缩服务类
  * 提供数据压缩和解压缩功能
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-19
  */
 @Service

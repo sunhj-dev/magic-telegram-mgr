@@ -1,6 +1,6 @@
 # =================================
 # Magic Telegram Server - 外部MongoDB部署
-# 作者: liubo
+# 作者: sunhj
 # 日期: 2025-01-15
 # 描述: 仅部署应用服务，连接外部MongoDB
 # =================================
@@ -10,7 +10,7 @@ version: '3.8'
 services:
   # Telegram应用服务
   app:
-    image: liubowyf0452/magic-telegram-server:${APP_VERSION:-latest}
+    image: sunhjwyf0452/magic-telegram-server:${APP_VERSION:-latest}
     container_name: magic-telegram-app
     restart: unless-stopped
     environment:

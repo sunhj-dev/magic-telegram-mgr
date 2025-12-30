@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  * 用于Web管理系统中系统统计信息的数据传输，包含账号统计、消息统计、
  * 系统状态等信息，为管理界面提供数据支持。
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-21
  */
 public class SystemStatsDTO {

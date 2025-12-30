@@ -17,7 +17,7 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/liubowyf/magic-telegram-server.git
+git clone https://github.com/sunhjwyf/magic-telegram-server.git
 cd magic-telegram-server
 
 # 2. 配置环境变量
@@ -40,7 +40,7 @@ docker-compose logs -f magic-telegram-server
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/liubowyf/magic-telegram-server.git
+git clone https://github.com/sunhjwyf/magic-telegram-server.git
 cd magic-telegram-server
 
 # 2. 配置环境变量
@@ -390,7 +390,7 @@ docker network prune -f
 version: '3.8'
 services:
   magic-telegram-server:
-    image: liubowyf0452/magic-telegram-server:latest
+    image: sunhjwyf0452/magic-telegram-server:latest
     restart: unless-stopped
     environment:
       - SPRING_PROFILES_ACTIVE=prod
@@ -423,6 +423,6 @@ nginx:
 
 ---
 
-**作者**: liubo  
+**作者**: sunhj  
 **日期**: 2025-01-15  
 **版本**: 1.0.0

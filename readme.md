@@ -494,14 +494,14 @@ magic-telegram-server/
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=liubowyf/magic-telegram-server&type=Date)](https://api.star-history.com/svg?repos=liubowyf/magic-telegram-server&type=Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=sunhjwyf/magic-telegram-server&type=Date)](https://api.star-history.com/svg?repos=sunhjwyf/magic-telegram-server&type=Date)
 
 ## 📞 社区支持
 
 
-- 📧 **邮件**: [liubowyf@163.com](mailto:liubowyf@163.com)
-- 🐛 **问题**: [GitHub Issues](https://github.com/liubowyf/magic-telegram-server/issues)
-- 📖 **文档**: [项目 Wiki](https://github.com/liubowyf/magic-telegram-server/wiki)
+- 📧 **邮件**: [sunhjwyf@163.com](mailto:sunhjwyf@163.com)
+- 🐛 **问题**: [GitHub Issues](https://github.com/sunhjwyf/magic-telegram-server/issues)
+- 📖 **文档**: [项目 Wiki](https://github.com/sunhjwyf/magic-telegram-server/wiki)
 
 ## 📈 版本历史
 
@@ -527,7 +527,7 @@ magic-telegram-server/
 
 ## 作者
 
-- **作者**: liubo
+- **作者**: sunhj
 - **日期**: 2025-08-15
 - **版本**: 1.2.3 (多平台支持版)
 

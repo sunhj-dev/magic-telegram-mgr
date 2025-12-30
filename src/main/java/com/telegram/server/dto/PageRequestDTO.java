@@ -5,7 +5,7 @@ package com.telegram.server.dto;
  * 
  * 用于Web管理系统中分页查询的请求参数封装。
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-21
  */
 public class PageRequestDTO {

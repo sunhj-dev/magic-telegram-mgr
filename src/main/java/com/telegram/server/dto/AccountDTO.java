@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
  * 
  * 用于Web管理系统中账号信息的数据传输，包含账号的基本信息和状态。
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-21
  */
 public class AccountDTO {

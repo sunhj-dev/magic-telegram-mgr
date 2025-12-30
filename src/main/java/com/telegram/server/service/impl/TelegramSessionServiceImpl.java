@@ -48,7 +48,7 @@ import org.springframework.beans.factory.annotation.Value;
  * - 实例故障恢复
  * - Session锁定机制
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-11
  */
 @Service
@@ -698,7 +698,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * 
      * @return 所有session的列表
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-20
      */
     public List<TelegramSession> getAllSessions() {
@@ -720,7 +720,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param pageRequest 分页请求参数
      * @return 分页响应结果
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-21
      */
     @Override
@@ -761,7 +761,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param accountId 账号ID（手机号）
      * @return 账号详情
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-21
      */
     @Override
@@ -781,7 +781,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param accountId 账号ID（手机号）
      * @return 是否删除成功
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-21
      */
     @Override
@@ -827,7 +827,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * 
      * @param phoneNumber 手机号
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-21
      */
     private void deleteLocalSessionFiles(String phoneNumber) {
@@ -871,7 +871,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * 
      * @return 账号总数
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-21
      */
     @Override
@@ -889,7 +889,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * 
      * @return 活跃账号数量
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-21
      */
     @Override
@@ -908,7 +908,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param session TelegramSession对象
      * @return AccountDTO对象
      * 
-     * @author liubo
+     * @author sunhj
      * @since 2025-01-21
      */
     private AccountDTO convertToAccountDTO(TelegramSession session) {

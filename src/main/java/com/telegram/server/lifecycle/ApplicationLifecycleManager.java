@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
  * - 提供应用状态检查方法
  * - 记录生命周期事件日志
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-19
  */
 @Component

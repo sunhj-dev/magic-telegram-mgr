@@ -16,7 +16,7 @@ import java.util.Map;
  * 消息存储测试控制器
  * 用于验证消息存储功能是否正常工作
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-19
  */
 @RestController

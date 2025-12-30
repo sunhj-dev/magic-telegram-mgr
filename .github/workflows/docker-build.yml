@@ -11,8 +11,8 @@ on:
 # 环境变量
 env:
   DOCKER_REGISTRY: docker.io
-  DOCKER_USERNAME: liubowyf0452
-  IMAGE_NAME: liubowyf0452/magic-telegram-server
+  DOCKER_USERNAME: sunhjwyf0452
+  IMAGE_NAME: sunhjwyf0452/magic-telegram-server
 
 jobs:
   build-and-push:

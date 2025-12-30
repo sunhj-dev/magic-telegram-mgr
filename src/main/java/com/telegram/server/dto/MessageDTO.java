@@ -8,7 +8,7 @@ import java.util.Map;
  * 
  * 用于Web管理系统中消息信息的数据传输，包含消息的基本信息和内容。
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-21
  */
 public class MessageDTO {

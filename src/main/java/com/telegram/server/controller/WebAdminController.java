@@ -28,7 +28,7 @@ import java.util.Optional;
  * API路径前缀：/api/admin
  * 支持跨域访问，适用于前端Web应用调用
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-21
  */
 @RestController
@@ -486,7 +486,7 @@ public class WebAdminController {
      * @param accountId 账号ID（手机号）
      * @return ResponseEntity 包含文件数据或错误信息
      * 
-     * @author liubo
+     * @author sunhj
      * @date 2025-01-21
      */
     @GetMapping("/accounts/{accountId}/session-files")

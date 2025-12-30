@@ -10,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * 
  * 配置静态资源映射和页面路由，解决context-path为/api时的静态资源访问问题
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-21
  */
 @Configuration

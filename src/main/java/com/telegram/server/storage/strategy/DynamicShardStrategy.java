@@ -14,7 +14,7 @@ import java.util.zip.GZIPOutputStream;
  * 动态分片策略
  * 根据数据特征动态调整分片大小，优化存储效率
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-20
  */
 @Component

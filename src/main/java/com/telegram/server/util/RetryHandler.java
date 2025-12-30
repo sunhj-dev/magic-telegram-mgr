@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * TDLight异常重试处理工具类
  * 提供智能重试机制，支持指数退避、熔断器模式和异常分类处理
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-08-19
  */
 @Component

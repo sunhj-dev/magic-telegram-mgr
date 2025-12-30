@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
  * - 批量处理：支持批量消息处理
  * - 性能监控：记录处理性能指标
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-19
  */
 public interface ITelegramMessageService {

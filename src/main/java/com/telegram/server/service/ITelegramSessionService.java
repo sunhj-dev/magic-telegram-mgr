@@ -25,7 +25,7 @@ import java.util.Optional;
  * - 实例故障恢复
  * - Session锁定机制
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-20
  */
 public interface ITelegramSessionService {

@@ -1,5 +1,5 @@
 # Magic Telegram Server Dockerfile
-# 作者: liubo
+# 作者: sunhj
 # 日期: 2025-01-15
 # 描述: 多阶段构建的生产就绪Docker镜像，支持多架构（amd64/arm64）
 
@@ -49,7 +49,7 @@ RUN ls -la target/ && \
 FROM --platform=$TARGETPLATFORM eclipse-temurin:17-jre AS runtime
 
 # 设置维护者信息
-LABEL maintainer="liubo" \
+LABEL maintainer="sunhj" \
       version="v1.2.0" \
       description="Magic Telegram Server - 基于Spring Boot的Telegram消息处理服务" \
       org.opencontainers.image.source="https://github.com/your-repo/magic-telegram-server"

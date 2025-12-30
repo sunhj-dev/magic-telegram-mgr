@@ -2,7 +2,7 @@
  * 认证弹窗组件
  * 将auth.html的认证功能集成为弹窗形式
  * 
- * @author liubo
+ * @author sunhj
  * @date 2025-01-21
  */
 class AuthModal {
