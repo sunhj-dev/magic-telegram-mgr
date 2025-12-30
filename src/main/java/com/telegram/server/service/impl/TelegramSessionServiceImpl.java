@@ -89,6 +89,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
     /**
      * 初始化服务
      */
+    @Override
     public void init() {
         // 生成唯一的实例ID
         this.instanceId = generateInstanceId();
@@ -138,6 +139,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param apiHash API Hash
      * @return session对象
      */
+    @Override
     public TelegramSession createOrUpdateSession(String phoneNumber, Integer apiId, String apiHash) {
         Optional<TelegramSession> existingSession = sessionRepository.findByPhoneNumber(phoneNumber);
         
@@ -162,6 +164,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param phoneNumber 手机号码
      * @return session对象
      */
+    @Override
     public Optional<TelegramSession> getSessionByPhoneNumber(String phoneNumber) {
         return sessionRepository.findByPhoneNumber(phoneNumber);
     }
@@ -172,6 +175,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param phoneNumber 手机号码
      * @return session对象
      */
+    @Override
     public Optional<TelegramSession> findByPhoneNumber(String phoneNumber) {
         return getSessionByPhoneNumber(phoneNumber);
     }
@@ -182,6 +186,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param phoneNumber 手机号码
      * @return 是否成功激活
      */
+    @Override
     public boolean activateSession(String phoneNumber) {
         Optional<TelegramSession> sessionOpt = sessionRepository.findByPhoneNumber(phoneNumber);
         if (sessionOpt.isPresent()) {
@@ -201,6 +206,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param phoneNumber 手机号码
      * @return 是否成功停用
      */
+    @Override
     public boolean deactivateSession(String phoneNumber) {
         Optional<TelegramSession> sessionOpt = sessionRepository.findByPhoneNumber(phoneNumber);
         if (sessionOpt.isPresent()) {
@@ -220,6 +226,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param phoneNumber 手机号码
      * @param authState 认证状态
      */
+    @Override
     public void updateAuthState(String phoneNumber, String authState) {
         Optional<TelegramSession> sessionOpt = sessionRepository.findByPhoneNumber(phoneNumber);
         if (sessionOpt.isPresent()) {
@@ -237,6 +244,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param phoneNumber 手机号
      * @param isAuthenticated 是否已认证
      */
+    @Override
     public void updateAuthenticationStatus(String phoneNumber, boolean isAuthenticated) {
         Optional<TelegramSession> sessionOpt = sessionRepository.findByPhoneNumber(phoneNumber);
         if (sessionOpt.isPresent()) {
@@ -255,6 +263,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param phoneNumber 手机号码
      * @param sessionPath session文件路径
      */
+    @Override
     public void saveSessionFiles(String phoneNumber, String sessionPath) {
         try {
             TelegramSession session = validateAndGetSession(phoneNumber);
@@ -314,6 +323,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param sessionPath session文件路径
      * @return 是否成功恢复
      */
+    @Override
     public boolean restoreSessionFiles(String phoneNumber, String sessionPath) {
         try {
             TelegramSession session = validateAndGetSessionForRestore(phoneNumber);
@@ -589,6 +599,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @param phoneNumber 手机号码
      * @return 是否成功删除
      */
+    @Override
     public boolean deleteSession(String phoneNumber) {
         try {
             Optional<TelegramSession> sessionOpt = sessionRepository.findByPhoneNumber(phoneNumber);
@@ -614,6 +625,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * 
      * @return session列表
      */
+    @Override
     public List<TelegramSession> getAvailableSessions() {
         return sessionRepository.findAvailableSessions();
     }
@@ -625,6 +637,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * 
      * @return 清理的session数量
      */
+    @Override
     public int cleanupExpiredSessions() {
         try {
             LocalDateTime threshold = LocalDateTime.now().minusHours(inactiveTimeoutHours);
@@ -652,6 +665,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * 
      * @return 实例ID
      */
+    @Override
     public String getInstanceId() {
         return instanceId;
     }
@@ -661,6 +675,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * 
      * @return 统计信息
      */
+    @Override
     public Map<String, Object> getSessionStats() {
         Map<String, Object> stats = new HashMap<>();
         
@@ -701,6 +716,7 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @author sunhj
      * @since 2025-01-20
      */
+    @Override
     public List<TelegramSession> getAllSessions() {
         try {
             List<TelegramSession> sessions = sessionRepository.findAll();

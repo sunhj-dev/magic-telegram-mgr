@@ -125,6 +125,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @author sunhj
      * @since 2025.01.19
      */
+    @Override
     @Async("messageProcessingExecutor")
     public CompletableFuture<Boolean> updateImageDataAsync(String accountPhone, Long chatId, Long messageId,
                                                            String imageData, String imageFilename, 
@@ -195,6 +196,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param message 消息对象
      * @return 异步处理结果
      */
+    @Override
     @Async("messageProcessingExecutor")
     public CompletableFuture<Boolean> saveMessageAsync(TelegramMessage message) {
         try {
@@ -322,6 +324,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param message 消息对象
      * @return 是否保存成功
      */
+    @Override
     public boolean saveMessage(TelegramMessage message) {
         try {
             // 设置实例ID和创建时间
@@ -362,6 +365,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param messages 消息列表
      * @return 异步处理结果
      */
+    @Override
     @Async(ASYNC_EXECUTOR)
     public CompletableFuture<Integer> saveMessagesAsync(List<TelegramMessage> messages) {
         try {
@@ -580,6 +584,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param messageId 消息ID
      * @return 是否存在
      */
+    @Override
     public boolean isMessageExists(String accountPhone, Long chatId, Long messageId) {
         return messageRepository.existsByAccountPhoneAndChatIdAndMessageId(accountPhone, chatId, messageId);
     }
@@ -590,6 +595,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param messageId 消息复合ID
      * @return 消息对象（可能为空）
      */
+    @Override
     public Optional<TelegramMessage> findById(String messageId) {
         return messageRepository.findById(messageId);
     }
@@ -602,6 +608,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param messageId 消息ID
      * @return 消息对象（可能为空）
      */
+    @Override
     public Optional<TelegramMessage> findMessage(String accountPhone, Long chatId, Long messageId) {
         return messageRepository.findByAccountPhoneAndChatIdAndMessageId(accountPhone, chatId, messageId);
     }
@@ -614,6 +621,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param size 每页大小
      * @return 消息分页结果
      */
+    @Override
     public Page<TelegramMessage> findMessagesByAccount(String accountPhone, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "messageDate"));
         return messageRepository.findByAccountPhone(accountPhone, pageable);
@@ -628,6 +636,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param size 每页大小
      * @return 消息分页结果
      */
+    @Override
     public Page<TelegramMessage> findMessagesByAccountAndChat(String accountPhone, Long chatId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "messageDate"));
         return messageRepository.findByAccountPhoneAndChatId(accountPhone, chatId, pageable);
@@ -640,6 +649,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param limit 限制数量
      * @return 最新消息列表
      */
+    @Override
     public Page<TelegramMessage> findLatestMessages(String accountPhone, int limit) {
         Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "messageDate"));
         return messageRepository.findLatestMessagesByAccount(accountPhone, pageable);
@@ -653,6 +663,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param limit 限制数量
      * @return 最新消息列表
      */
+    @Override
     public Page<TelegramMessage> findLatestMessagesInChat(String accountPhone, Long chatId, int limit) {
         Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "messageDate"));
         return messageRepository.findLatestMessagesByAccountAndChat(accountPhone, chatId, pageable);
@@ -668,6 +679,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param size 每页大小
      * @return 消息分页结果
      */
+    @Override
     public Page<TelegramMessage> findMessagesByTimeRange(String accountPhone, LocalDateTime startTime, 
             LocalDateTime endTime, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "messageDate"));
@@ -683,6 +695,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param size 每页大小
      * @return 消息分页结果
      */
+    @Override
     public Page<TelegramMessage> findMessagesByType(String accountPhone, String messageType, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "messageDate"));
         return messageRepository.findByAccountPhoneAndMessageType(accountPhone, messageType, pageable);
@@ -697,6 +710,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param size 每页大小
      * @return 消息分页结果
      */
+    @Override
     public Page<TelegramMessage> searchMessages(String accountPhone, String searchText, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "messageDate"));
         return messageRepository.searchMessagesByText(accountPhone, searchText, pageable);
@@ -710,6 +724,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param accountPhone 账号手机号
      * @return 消息总数
      */
+    @Override
     public long countMessagesByAccount(String accountPhone) {
         return messageRepository.countByAccountPhone(accountPhone);
     }
@@ -721,6 +736,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param chatId 聊天ID
      * @return 消息总数
      */
+    @Override
     public long countMessagesByAccountAndChat(String accountPhone, Long chatId) {
         return messageRepository.countByAccountPhoneAndChatId(accountPhone, chatId);
     }
@@ -733,6 +749,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param endTime 结束时间
      * @return 消息数量
      */
+    @Override
     public long countMessagesByTimeRange(String accountPhone, LocalDateTime startTime, LocalDateTime endTime) {
         return messageRepository.countByAccountPhoneAndMessageDateBetween(accountPhone, startTime, endTime);
     }
@@ -743,6 +760,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param accountPhone 账号手机号
      * @return 群组消息统计列表
      */
+    @Override
     public List<TelegramMessageRepository.ChatMessageStats> getChatMessageStats(String accountPhone) {
         return messageRepository.getMessageStatsByChat(accountPhone);
     }
@@ -753,6 +771,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param accountPhone 账号手机号
      * @return 消息类型统计列表
      */
+    @Override
     public List<TelegramMessageRepository.MessageTypeStats> getMessageTypeStats(String accountPhone) {
         return messageRepository.getMessageStatsByType(accountPhone);
     }
@@ -763,6 +782,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param accountPhone 账号手机号
      * @return 活跃群组列表
      */
+    @Override
     public List<TelegramMessageRepository.ActiveChatInfo> getActiveChats(String accountPhone) {
         return messageRepository.getActiveChats(accountPhone);
     }
@@ -776,6 +796,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param accountPhone 账号手机号
      * @return 删除的消息数量
      */
+    @Override
     public long deleteMessagesByAccount(String accountPhone) {
         try {
             long deletedCount = messageRepository.deleteByAccountPhone(accountPhone);
@@ -794,6 +815,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param chatId 聊天ID
      * @return 删除的消息数量
      */
+    @Override
     public long deleteMessagesByAccountAndChat(String accountPhone, Long chatId) {
         try {
             long deletedCount = messageRepository.deleteByAccountPhoneAndChatId(accountPhone, chatId);
@@ -812,6 +834,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * @param beforeTime 时间点
      * @return 删除的消息数量
      */
+    @Override
     public long cleanupOldMessages(LocalDateTime beforeTime) {
         try {
             long deletedCount = messageRepository.deleteByMessageDateBefore(beforeTime);
@@ -832,6 +855,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
      * 
      * @return 性能统计信息
      */
+    @Override
     public ITelegramMessageService.ProcessingStats getProcessingStats() {
         return new ITelegramMessageService.ProcessingStats(
             processedMessageCount.get(),
@@ -844,6 +868,7 @@ public class TelegramMessageServiceImpl implements ITelegramMessageService {
     /**
      * 重置性能统计计数器
      */
+    @Override
     public void resetStats() {
         processedMessageCount.set(0);
         savedMessageCount.set(0);

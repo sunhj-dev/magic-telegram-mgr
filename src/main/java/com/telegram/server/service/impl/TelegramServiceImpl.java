@@ -246,6 +246,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 初始化Telegram服务
      */
+    @Override
     @PostConstruct
     public void init() {
         try {
@@ -1417,6 +1418,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param appHash Telegram API Hash，从https://my.telegram.org获取
      * @return true表示配置成功，false表示配置失败
      */
+    @Override
     public boolean configApi(int appId, String appHash) {
         try {
             // 检查是否已经有活跃的授权状态
@@ -1482,6 +1484,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param phoneNumber 手机号码，格式如：+8613800138000
      * @return true表示提交成功，false表示提交失败
      */
+    @Override
     public boolean submitPhoneNumber(String phoneNumber) {
         try {
             this.runtimePhoneNumber = phoneNumber;
@@ -2130,6 +2133,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 启动监听
      */
+    @Override
     public void startListening() {
         logger.info("Telegram服务已启动，开始监听消息");
     }
@@ -2153,6 +2157,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param code 短信验证码，通常为5-6位数字
      * @return 包含提交结果的Map对象
      */
+    @Override
     public Map<String, Object> submitAuthCode(String code) {
         Map<String, Object> result = new HashMap<>();
         
@@ -2277,6 +2282,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param password 两步验证密码，用户设置的安全密码
      * @return true表示提交成功，false表示提交失败或当前状态不需要密码
      */
+    @Override
     public boolean submitPassword(String password) {
         try {
             if (currentAuthState instanceof TdApi.AuthorizationStateWaitPassword) {
@@ -3160,6 +3166,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * 获取服务状态
      * @return 服务状态
      */
+    @Override
     public String getStatus() {
         if (client == null) {
             return "客户端未初始化";
@@ -3207,6 +3214,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @author sunhj
      * @since 2025-08-05
      */
+    @Override
     public Map<String, Object> getAuthStatus() {
         Map<String, Object> status = new HashMap<>();
         
@@ -3379,6 +3387,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @author sunhj
      * @since 2025-08-25
      */
+    @Override
     public void initializeAccount() {
         try {
             logger.info("正在初始化Telegram账号...");
@@ -3411,6 +3420,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @author sunhj
      * @since 2025-08-25
      */
+    @Override
     public void stopListening() {
         try {
             logger.info("正在停止消息监听...");
@@ -3440,6 +3450,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @author sunhj
      * @since 2025-08-25
      */
+    @Override
     public void clearSession() {
         try {
             logger.info("正在清理Session数据...");
@@ -3536,6 +3547,7 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * 关闭服务
      */
+    @Override
     @PreDestroy
     public void shutdown() {
         try {
@@ -3641,6 +3653,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @author sunhj
      * @date 2025-08-05
      */
+    @Override
     public Map<String, Object> checkSessionDataIntegrity() {
         Map<String, Object> result = new HashMap<>();
         List<String> issues = new java.util.ArrayList<>();
