@@ -71,7 +71,7 @@ import java.util.concurrent.CompletableFuture;
  * @since 2025.08.01
  */
 @Service
-//@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class TelegramServiceImpl implements ITelegramService {
 
     /**
