@@ -190,4 +190,9 @@ public interface TelegramSessionRepository extends MongoRepository<TelegramSessi
            "{'databaseFiles': {}}" +
            "]}")
     List<TelegramSession> findSessionsWithoutDatabaseFiles();
+
+    List<TelegramSession> findAllByAuthState(String authState);
+
+
+    void deleteByPhoneNumber(String phoneNumber);
 }

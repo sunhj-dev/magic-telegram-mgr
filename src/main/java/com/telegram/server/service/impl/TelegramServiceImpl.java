@@ -1,54 +1,48 @@
 package com.telegram.server.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.telegram.server.config.TelegramConfig;
+import com.telegram.server.config.TelegramConfigManager;
+import com.telegram.server.entity.TelegramMessage;
+import com.telegram.server.entity.TelegramSession;
+import com.telegram.server.service.ITelegramMessageService;
+import com.telegram.server.service.ITelegramService;
+import com.telegram.server.service.ITelegramSessionService;
+import com.telegram.server.util.ImageProcessingUtil;
+import com.telegram.server.util.PathValidator;
+import com.telegram.server.util.RetryHandler;
+import com.telegram.server.util.TimeZoneUtil;
 import it.tdlight.Init;
 import it.tdlight.Log;
 import it.tdlight.Slf4JLogMessageHandler;
-import it.tdlight.client.APIToken;
-import it.tdlight.client.AuthenticationSupplier;
-
-import it.tdlight.client.SimpleTelegramClient;
-import it.tdlight.client.SimpleTelegramClientBuilder;
-import it.tdlight.client.SimpleTelegramClientFactory;
-import it.tdlight.client.TDLibSettings;
+import it.tdlight.client.*;
 import it.tdlight.jni.TdApi;
 import it.tdlight.util.UnsupportedNativeLibraryException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.telegram.server.config.TelegramConfigManager;
-import com.telegram.server.entity.TelegramSession;
-import com.telegram.server.entity.TelegramMessage;
-import com.telegram.server.service.ITelegramService;
-import com.telegram.server.service.ITelegramMessageService;
-import com.telegram.server.service.ITelegramSessionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Service;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Base64;
-import java.util.concurrent.CompletableFuture;
-import java.util.Optional;
-import java.util.List;
-import com.telegram.server.util.ImageProcessingUtil;
-import com.telegram.server.util.TimeZoneUtil;
-import com.telegram.server.util.RetryHandler;
-import com.telegram.server.util.PathValidator;
-import com.telegram.server.config.TelegramConfig;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 单账号Telegram服务类
@@ -77,6 +71,7 @@ import java.time.Instant;
  * @since 2025.08.01
  */
 @Service
+//@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class TelegramServiceImpl implements ITelegramService {
 
     /**
@@ -1950,7 +1945,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * @author sunhj
      * @date 2025-01-21
      */
-    private void initializeClient() {
+    public void initializeClient() {
         try {
             // 初始化TDLib工厂
             initializeTDLibFactory();
@@ -3923,4 +3918,121 @@ public class TelegramServiceImpl implements ITelegramService {
         int sessionsWithFiles = 0;
         int sessionsWithoutFiles = 0;
     }
+
+
+    /**
+     * 发送到指定聊天（群发专用）
+     * @param chatId 目标ID（支持 -100xxx, @username, 123456）
+     * @param text 消息内容
+     * @throws Exception 发送异常
+     */
+    public void sendMessageToChat(String chatId, String text) throws Exception {
+        try {
+            // 解析Chat ID
+            long targetChatId = parseChatId(chatId);
+
+            // 构建消息内容
+            TdApi.InputMessageText content = new TdApi.InputMessageText(
+                    new TdApi.FormattedText(text, null),
+                    null,
+                    false
+            );
+
+            TdApi.SendMessage sendMessage = new TdApi.SendMessage();
+            sendMessage.chatId = targetChatId;
+            sendMessage.inputMessageContent = content;
+
+            // 执行发送
+            client.send(sendMessage).get(); // 同步等待发送完成
+
+            logger.debug("消息发送成功: chatId={}", chatId);
+        } catch (NumberFormatException e) {
+            logger.error("无效的Chat ID格式: {}", chatId);
+            throw new RuntimeException("无效的Chat ID: " + chatId);
+        } catch (Exception e) {
+            logger.error("消息发送失败: chatId={}, error={}", chatId, e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * 解析Chat ID（支持多种格式）
+     * @param chatId 原始Chat ID字符串
+     * @return 解析后的长整型Chat ID
+     * @throws Exception 解析失败时抛出异常
+     */
+    private long parseChatId(String chatId) throws Exception {
+        if (chatId.startsWith("-100")) {
+            // 超级群组
+            long groupId = Long.parseLong(chatId.replace("-100", ""));
+            return -groupId; // TDLight使用负数表示群组
+        } else if (chatId.startsWith("@")) {
+            // 用户名（需要先获取chatId）
+            String username = chatId.substring(1);
+
+            Result<TdApi.Chat> result = client.execute(new TdApi.SearchPublicChat(username));
+            TdApi.Chat chat = result.get();
+
+            return chat.id;
+        } else {
+            // 用户ID
+            return Long.parseLong(chatId);
+        }
+    }
+
+    /**
+     * 获取 Telegram 客户端实例（供群发服务使用）
+     *
+     * @return SimpleTelegramClient 实例
+     * @throws RuntimeException 如果客户端未初始化或已关闭
+     */
+    public SimpleTelegramClient getClient() {
+        if (client == null) {
+            throw new RuntimeException("Telegram 客户端未初始化，请先完成账号认证");
+        }
+
+        // 检查客户端是否已关闭
+        if (currentAuthState instanceof TdApi.AuthorizationStateClosed) {
+            throw new RuntimeException("Telegram 客户端已关闭，需要重新初始化");
+        }
+
+        // 检查是否已授权
+        if (!(currentAuthState instanceof TdApi.AuthorizationStateReady)) {
+            throw new RuntimeException("Telegram 客户端未授权完成，当前状态: " +
+                    (currentAuthState != null ? currentAuthState.getClass().getSimpleName() : "null"));
+        }
+
+        return client;
+    }
+
+    /**
+     * 检查客户端是否已授权并就绪
+     *
+     * @return true 如果客户端已授权且可以发送消息
+     */
+    public boolean isClientReady() {
+        return client != null && currentAuthState instanceof TdApi.AuthorizationStateReady;
+    }
+
+    /**
+     * 设置运行时 API ID
+     */
+    public void setRuntimeApiId(Integer runtimeApiId) {
+        this.runtimeApiId = runtimeApiId;
+    }
+
+    /**
+     * 设置运行时 API Hash
+     */
+    public void setRuntimeApiHash(String runtimeApiHash) {
+        this.runtimeApiHash = runtimeApiHash;
+    }
+
+    /**
+     * 设置运行时手机号
+     */
+    public void setRuntimePhoneNumber(String runtimePhoneNumber) {
+        this.runtimePhoneNumber = runtimePhoneNumber;
+    }
+
 }

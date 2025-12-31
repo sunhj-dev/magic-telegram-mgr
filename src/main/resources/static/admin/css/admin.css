@@ -891,3 +891,99 @@ body {
         font-size: 0.85rem;
     }
 }
+
+/* 模态窗口高度优化 */
+.modal-container {
+    max-width: 600px;
+    max-height: 90vh; /* ✅ 限制最大高度为视口的90% */
+    overflow: hidden; /* 隐藏外部滚动 */
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-body {
+    max-height: calc(90vh - 120px); /* ✅ 计算可用高度，减去头部和底部 */
+    overflow-y: auto; /* ✅ 内部内容可滚动 */
+    padding: 20px;
+}
+
+/* 步骤指示器优化 */
+.step-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 0 10px; /* 减小padding */
+    flex-shrink: 0; /* 防止被压缩 */
+}
+
+.step-number {
+    width: 36px; /* 减小尺寸 */
+    height: 36px;
+    font-size: 14px;
+}
+
+.step-label {
+    font-size: 12px; /* 减小字体 */
+}
+
+/* 表单内容压缩 */
+.form-group {
+    margin-bottom: 15px; /* 减小间距 */
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    padding: 8px; /* 减小内边距 */
+    font-size: 14px;
+}
+
+.help-text {
+    font-size: 11px; /* 减小提示文字 */
+}
+
+/* 按钮组优化 */
+.btn-group {
+    margin-top: 20px;
+    flex-shrink: 0; /* 防止被压缩 */
+}
+
+/* 响应式优化 */
+@media (max-height: 800px) {
+    .modal-container {
+        max-height: 95vh;
+    }
+
+    .modal-body {
+        max-height: calc(95vh - 100px);
+        padding: 15px;
+    }
+
+    .step-indicator {
+        margin-bottom: 15px;
+    }
+
+    .form-group {
+        margin-bottom: 12px;
+    }
+}
+
+@media (max-height: 600px) {
+    .modal-header {
+        padding: 15px; /* 减小头部padding */
+    }
+
+    .modal-header h2 {
+        font-size: 18px; /* 减小标题 */
+    }
+
+    .step-number {
+        width: 32px;
+        height: 32px;
+        font-size: 13px;
+    }
+
+    .step-label {
+        font-size: 11px;
+    }
+}

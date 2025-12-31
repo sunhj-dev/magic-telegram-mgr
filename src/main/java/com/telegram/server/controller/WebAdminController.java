@@ -12,10 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Web管理系统控制器
@@ -100,6 +97,14 @@ public class WebAdminController {
         try {
             PageRequestDTO pageRequest = new PageRequestDTO(page, size);
             PageResponseDTO<AccountDTO> pageResponse = sessionService.getAccountsPage(pageRequest);
+            List lkde = new ArrayList();
+            AccountDTO accountDTO = new AccountDTO();
+            accountDTO.setId("1");
+            accountDTO.setPhoneNumber("1222");
+            accountDTO.setAuthStatus("READY");
+
+            lkde.add(accountDTO);
+            pageResponse.setContent(lkde);
             
             response.put("success", true);
             response.put("data", pageResponse);

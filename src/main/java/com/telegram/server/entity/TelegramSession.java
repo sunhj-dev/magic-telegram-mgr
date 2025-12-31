@@ -216,7 +216,8 @@ public class TelegramSession {
         this.phoneNumber = phoneNumber;
         this.apiId = apiId;
         this.apiHash = apiHash;
-        this.id = phoneNumber; // 使用手机号作为ID
+        // 使用手机号作为ID
+        this.id = phoneNumber;
     }
 
     // Getter和Setter方法
@@ -235,7 +236,8 @@ public class TelegramSession {
 
     public void setPhoneNumber(String phoneNumber) {
         this.phoneNumber = phoneNumber;
-        this.id = phoneNumber; // 同步更新ID
+        // 同步更新ID
+        this.id = phoneNumber;
     }
 
     public Integer getApiId() {

@@ -420,7 +420,45 @@ const API = {
         async getChartData(type, period = '7d') {
             return HttpClient.get('/dashboard/chart', { type, period });
         }
+    },
+
+    massMessage: {
+        /**
+         * 获取任务列表
+         */
+        getTasks: (params) => {
+            return HttpClient.get('/mass-message/tasks', params);
+        },
+
+        /**
+         * 创建任务
+         */
+        createTask: (data) => {
+            return HttpClient.post('/mass-message/task', data);
+        },
+
+        /**
+         * 启动/暂停任务
+         */
+        toggleTask: (taskId, action) => {
+            return HttpClient.post(`/mass-message/task/${taskId}/${action}`);
+        },
+
+        /**
+         * 删除任务
+         */
+        deleteTask: (taskId) => {
+            return HttpClient.delete(`/mass-message/task/${taskId}`);
+        },
+
+        /**
+         * 获取任务详情
+         */
+        getTaskDetail: (taskId) => {
+            return HttpClient.get(`/mass-message/task/${taskId}`);
+        }
     }
+
 };
 
 // 请求拦截器 - 显示加载状态

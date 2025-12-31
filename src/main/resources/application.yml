@@ -40,6 +40,9 @@ server:
 
 # Telegram配置
 telegram:
+  mass-message:
+    enabled: true
+    rateLimitDelay: 5000
   # TDLight客户端配置
   tdlight:
     api-id: ${TELEGRAM_API_ID:}
@@ -125,10 +128,11 @@ telegram:
   proxy:
     enabled: true
     host: 127.0.0.1
-    port: 7890
+    port: 14479
     type: socks5
 
-# 消息存储配置
+
+
 message:
   storage:
     # 基础配置
@@ -183,3 +187,11 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+
+
+
+logging:
+  level:
+    org.springframework.boot.autoconfigure: ERROR
+    org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLoggingListener: ERROR
