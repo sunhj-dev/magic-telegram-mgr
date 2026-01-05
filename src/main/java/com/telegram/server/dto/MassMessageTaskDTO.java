@@ -22,8 +22,8 @@ public class MassMessageTaskDTO {
     /** 消息类型 */
     private String messageType = "TEXT";
 
-    /** 定时执行时间（null表示立即执行） */
-    private String scheduleTime;
+    /** Cron表达式（null或空字符串表示立即执行） */
+    private String cronExpression;
 
     private String targetAccountPhone;
 }

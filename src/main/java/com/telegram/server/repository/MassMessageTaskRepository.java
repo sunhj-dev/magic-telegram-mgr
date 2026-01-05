@@ -30,7 +30,12 @@ public interface MassMessageTaskRepository extends MongoRepository<MassMessageTa
      * 查询所有运行中的任务
      */
     List<MassMessageTask> findByStatus(MassMessageTask.TaskStatus status);
-
+    
+    /**
+     * 查询待执行且有cron表达式的任务
+     */
+    List<MassMessageTask> findByStatusAndCronExpressionIsNotNull(MassMessageTask.TaskStatus status);
+    
     /**
      * 统计各状态任务数量
      */

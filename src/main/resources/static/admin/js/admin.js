@@ -169,10 +169,10 @@ const TelegramAdmin = {
                                     <td>${Utils.formatDateTime(acc.createdAt)}</td>
                                     <td>
                                         <button class="btn btn-sm btn-primary" onclick="TelegramAdmin.editAccount('${acc.id}')">
-                                            <i class="fas fa-edit"></i>
+                                            ✏️
                                         </button>
                                         <button class="btn btn-sm btn-danger" onclick="TelegramAdmin.deleteAccount('${acc.id}')">
-                                            <i class="fas fa-trash"></i>
+                                            🗑️
                                         </button>
                                     </td>
                                 </tr>
@@ -256,7 +256,7 @@ const TelegramAdmin = {
                                     <td>${Utils.formatDateTime(msg.messageTime)}</td>
                                     <td>
                                         <button class="btn btn-sm btn-primary" onclick="TelegramAdmin.viewMessage('${msg.id}')">
-                                            <i class="fas fa-eye"></i>
+                                            👁️
                                         </button>
                                     </td>
                                 </tr>
@@ -290,7 +290,7 @@ const TelegramAdmin = {
             <div class="page-header">
                 <h2>消息群发</h2>
                 <button class="btn btn-success" id="create-task-btn">
-                    <i class="fas fa-plus"></i> 新建群发任务
+                    ➕ 新建群发任务
                 </button>
             </div>
             
@@ -351,7 +351,7 @@ const TelegramAdmin = {
                             <thead>
                                 <tr>
                                     <th>任务名称</th><th>类型</th><th>目标数</th>
-                                    <th>状态</th><th>成功/失败</th><th>创建时间</th><th>操作</th>
+                                    <th>状态</th><th>成功/失败</th><th>Cron表达式</th><th>下次执行</th><th>创建时间</th><th>操作</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -359,17 +359,30 @@ const TelegramAdmin = {
                                     <tr>
                                         <td>${task.taskName}</td>
                                         <td>${this.getTaskTypeLabel(task.messageType)}</td>
-                                        <td>${task.targetChatIds.length}</td>
+                                        <td>${task.targetChatIds ? task.targetChatIds.length : 0}</td>
                                         <td>${this.getTaskStatusBadge(task.status)}</td>
-                                        <td>${task.successCount}/${task.failureCount}</td>
+                                        <td>${task.successCount || 0}/${task.failureCount || 0}</td>
+                                        <td>${task.cronExpression ? '<code style="font-size: 11px;">' + task.cronExpression + '</code>' : '<span style="color: #999;">立即执行</span>'}</td>
+                                        <td>${task.nextExecuteTime ? Utils.formatDateTime(task.nextExecuteTime) : '<span style="color: #999;">-</span>'}</td>
                                         <td>${Utils.formatDateTime(task.createdTime)}</td>
                                         <td>
-                                            <button class="btn btn-sm btn-primary" onclick="TelegramAdmin.viewTaskDetail('${task.id}')">
-                                                <i class="fas fa-eye"></i>
+                                            <button class="btn btn-sm btn-primary" onclick="TelegramAdmin.viewTaskDetail('${task.id}')" title="查看详情">
+                                                👁️
                                             </button>
-                                            <button class="btn btn-sm btn-warning" onclick="TelegramAdmin.toggleTask('${task.id}', '${task.status}')">
-                                                <i class="fas fa-${task.status === 'RUNNING' ? 'pause' : 'play'}"></i>
-                                            </button>
+                                            ${task.status === 'RUNNING' ? 
+                                                `<button class="btn btn-sm btn-warning" onclick="TelegramAdmin.pauseTask('${task.id}')" title="暂停任务">
+                                                    ⏸️
+                                                </button>` :
+                                                task.status === 'PAUSED' || task.status === 'PENDING' ?
+                                                `<button class="btn btn-sm btn-success" onclick="TelegramAdmin.startTask('${task.id}')" title="启动任务">
+                                                    ▶️
+                                                </button>` : ''
+                                            }
+                                            ${task.status !== 'RUNNING' ? 
+                                                `<button class="btn btn-sm btn-danger" onclick="TelegramAdmin.deleteTask('${task.id}')" title="删除任务">
+                                                    🗑️
+                                                </button>` : ''
+                                            }
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -395,9 +408,126 @@ const TelegramAdmin = {
             'PENDING': '<span class="badge badge-warning">待处理</span>',
             'RUNNING': '<span class="badge badge-primary">运行中</span>',
             'COMPLETED': '<span class="badge badge-success">已完成</span>',
-            'FAILED': '<span class="badge badge-danger">已失败</span>'
+            'FAILED': '<span class="badge badge-danger">已失败</span>',
+            'PAUSED': '<span class="badge badge-secondary">已暂停</span>'
         };
         return map[status] || '<span class="badge">未知</span>';
+    },
+    
+    // 查看任务详情
+    async viewTaskDetail(taskId) {
+        try {
+            const response = await API.massMessage.getTaskDetail(taskId);
+            if (response.success && response.data) {
+                const task = response.data.task || response.data;
+                const logs = response.data.logs || [];
+                
+                const detailHtml = `
+                    <div style="max-width: 800px; padding: 20px;">
+                        <h3 style="margin-bottom: 20px;">任务详情</h3>
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                            <p><strong>任务名称：</strong>${task.taskName || '-'}</p>
+                            <p><strong>发送账号：</strong>${task.targetAccountPhone || '-'}</p>
+                            <p><strong>消息类型：</strong>${this.getTaskTypeLabel(task.messageType)}</p>
+                            <p><strong>状态：</strong>${this.getTaskStatusBadge(task.status)}</p>
+                            <p><strong>Cron表达式：</strong>${task.cronExpression ? '<code>' + task.cronExpression + '</code>' : '立即执行'}</p>
+                            <p><strong>下次执行时间：</strong>${task.nextExecuteTime ? Utils.formatDateTime(task.nextExecuteTime) : '-'}</p>
+                            <p><strong>目标数量：</strong>${task.targetChatIds ? task.targetChatIds.length : 0}</p>
+                            <p><strong>成功/失败：</strong>${task.successCount || 0} / ${task.failureCount || 0}</p>
+                            <p><strong>创建时间：</strong>${Utils.formatDateTime(task.createdTime)}</p>
+                            <p><strong>最后执行时间：</strong>${task.lastExecuteTime ? Utils.formatDateTime(task.lastExecuteTime) : '-'}</p>
+                            ${task.errorMessage ? `<p><strong>错误信息：</strong><span style="color: #e74c3c;">${task.errorMessage}</span></p>` : ''}
+                        </div>
+                        <h4 style="margin-bottom: 10px;">执行日志 (${logs.length}条)</h4>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            ${logs.length > 0 ? `
+                                <table class="data-table" style="font-size: 12px;">
+                                    <thead>
+                                        <tr>
+                                            <th>Chat ID</th><th>状态</th><th>错误信息</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${logs.map(log => `
+                                            <tr>
+                                                <td>${log.chatId || '-'}</td>
+                                                <td>${log.status === 'SUCCESS' ? '<span class="badge badge-success">成功</span>' : '<span class="badge badge-danger">失败</span>'}</td>
+                                                <td>${log.errorMessage || '-'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            ` : '<p style="color: #999; text-align: center; padding: 20px;">暂无执行日志</p>'}
+                        </div>
+                    </div>
+                `;
+                
+                Components.Modal.show({
+                    title: '任务详情',
+                    content: detailHtml,
+                    width: '900px'
+                });
+            } else {
+                Utils.showNotification('获取任务详情失败: ' + (response.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('查看任务详情失败:', error);
+            Utils.showNotification('查看任务详情失败: ' + error.message, 'error');
+        }
+    },
+    
+    // 启动任务
+    async startTask(taskId) {
+        if (!confirm('确认启动此任务？')) return;
+        
+        try {
+            const response = await API.massMessage.startTask(taskId);
+            if (response.success) {
+                Utils.showNotification('任务已启动', 'success');
+                await this.loadMassMessageTasks();
+            } else {
+                Utils.showNotification('启动任务失败: ' + (response.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('启动任务失败:', error);
+            Utils.showNotification('启动任务失败: ' + error.message, 'error');
+        }
+    },
+    
+    // 暂停任务
+    async pauseTask(taskId) {
+        if (!confirm('确认暂停此任务？')) return;
+        
+        try {
+            const response = await API.massMessage.pauseTask(taskId);
+            if (response.success) {
+                Utils.showNotification('任务已暂停', 'success');
+                await this.loadMassMessageTasks();
+            } else {
+                Utils.showNotification('暂停任务失败: ' + (response.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('暂停任务失败:', error);
+            Utils.showNotification('暂停任务失败: ' + error.message, 'error');
+        }
+    },
+    
+    // 删除任务
+    async deleteTask(taskId) {
+        if (!confirm('确认删除此任务？此操作不可恢复！')) return;
+        
+        try {
+            const response = await API.massMessage.deleteTask(taskId);
+            if (response.success) {
+                Utils.showNotification('任务已删除', 'success');
+                await this.loadMassMessageTasks();
+            } else {
+                Utils.showNotification('删除任务失败: ' + (response.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('删除任务失败:', error);
+            Utils.showNotification('删除任务失败: ' + error.message, 'error');
+        }
     },
 
     // 显示创建任务模态框（简化版）

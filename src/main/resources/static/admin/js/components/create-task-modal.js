@@ -82,9 +82,20 @@ class CreateTaskModal {
                             </div>
                             
                             <div class="form-group">
-                                <label for="task-schedule">定时发送时间（可选）</label>
-                                <input type="text" id="task-schedule" placeholder="例如：2025-01-15 14:30:00">
-                                <div class="help-text">格式：YYYY-MM-DD HH:MM:SS，留空则立即发送</div>
+                                <label for="task-schedule">Cron表达式（可选）</label>
+                                <input type="text" id="task-schedule" placeholder="例如：0 0 12 * * ?">
+                                <div class="help-text">
+                                    <div style="margin-bottom: 8px;">格式：秒 分 时 日 月 周，留空则立即发送</div>
+                                    <div style="font-size: 12px; color: #666;">
+                                        <strong>常用示例：</strong><br>
+                                        • <code>0 0 12 * * ?</code> - 每天12点执行<br>
+                                        • <code>0 0 9,18 * * ?</code> - 每天9点和18点执行<br>
+                                        • <code>0 0 0 * * ?</code> - 每天0点执行<br>
+                                        • <code>0 0 0 1 * ?</code> - 每月1号0点执行<br>
+                                        • <code>0 0 0 ? * MON</code> - 每周一0点执行<br>
+                                        • <code>0 */30 * * * ?</code> - 每30分钟执行一次
+                                    </div>
+                                </div>
                             </div>
                             
                             <div class="btn-group">
@@ -309,7 +320,17 @@ class CreateTaskModal {
         }
 
         // 收集第二步数据
-        const scheduleTime = document.getElementById('task-schedule').value.trim();
+        const cronExpression = document.getElementById('task-schedule').value.trim();
+
+        // 验证cron表达式（如果提供）
+        if (cronExpression) {
+            // 简单的cron表达式格式验证（6个字段，用空格分隔）
+            const cronParts = cronExpression.trim().split(/\s+/);
+            if (cronParts.length !== 6) {
+                this.showMessage('Cron表达式格式错误：应为6个字段（秒 分 时 日 月 周）', 'error');
+                return;
+            }
+        }
 
         // 合并数据
         const taskData = {
@@ -317,7 +338,7 @@ class CreateTaskModal {
             messageContent: this.formData.messageContent,
             targetChatIds: targetList,
             messageType: 'TEXT', // 固定为TEXT
-            scheduleTime: scheduleTime || null,
+            cronExpression: cronExpression || null,
             targetAccountPhone: this.formData.targetAccountPhone
         };
 
@@ -328,7 +349,7 @@ class CreateTaskModal {
             <p><strong>发送账号：</strong>${taskData.targetAccountPhone}</p>
             <p><strong>目标数量：</strong>${taskData.targetChatIds.length} 个</p>
             <p><strong>消息长度：</strong>${taskData.messageContent.length} 字符</p>
-            <p><strong>发送方式：</strong>${taskData.scheduleTime ? '定时: ' + taskData.scheduleTime : '立即发送'}</p>
+            <p><strong>发送方式：</strong>${taskData.cronExpression ? '定时任务: ' + taskData.cronExpression : '立即发送'}</p>
             <p style="margin-top: 15px; color: #e74c3c; font-weight: bold;">
                 ⚠️ 确认创建？此操作将开始发送消息。
             </p>
@@ -350,8 +371,8 @@ class CreateTaskModal {
 
                     // 显示完成页
                     document.getElementById('complete-message').textContent =
-                        taskData.scheduleTime
-                            ? '任务已保存，将在 ' + taskData.scheduleTime + ' 执行'
+                        taskData.cronExpression
+                            ? '定时任务已创建，将按照Cron表达式执行: ' + taskData.cronExpression
                             : '任务正在执行中...';
 
                     this.showComplete();

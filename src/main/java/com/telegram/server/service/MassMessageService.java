@@ -6,12 +6,12 @@ import com.telegram.server.dto.PageResponseDTO;
 import com.telegram.server.dto.TaskDetailVO;
 import com.telegram.server.entity.MassMessageLog;
 import com.telegram.server.entity.MassMessageTask;
-import com.telegram.server.entity.TelegramSession;
 import com.telegram.server.repository.MassMessageLogRepository;
 import com.telegram.server.repository.MassMessageTaskRepository;
-import com.telegram.server.repository.TelegramSessionRepository;
-import com.telegram.server.service.impl.TelegramServiceImpl;
+import com.telegram.server.service.TelegramClientManager;
+import com.telegram.server.service.scheduler.MassMessageTaskScheduler;
 import it.tdlight.client.SimpleTelegramClient;
+import it.tdlight.client.TelegramError;
 import it.tdlight.jni.TdApi;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,16 +45,12 @@ public class MassMessageService {
 
     private final MassMessageTaskRepository taskRepository;
     private final MassMessageLogRepository logRepository;
-    private final TelegramSessionRepository sessionRepository;
     private final MassMessageProperties properties;
     private final TelegramClientManager clientManager;
+    private final MassMessageTaskScheduler taskScheduler;
 
     private final Map<String, AtomicInteger> taskExecutions = new ConcurrentHashMap<>();
 
-    /**
-     * ✅ 缓存账号服务实例
-     */
-    private final Map<String, TelegramServiceImpl> accountServices = new ConcurrentHashMap<>();
 
     /**
      * 创建群发任务
@@ -70,27 +66,31 @@ public class MassMessageService {
         // 验证账号可用性
         validateAccountReady(dto.getTargetAccountPhone());
 
+        // 验证cron表达式（必须提供）
+        String cronExpression = dto.getCronExpression();
+        if (cronExpression == null || cronExpression.trim().isEmpty()) {
+            throw new IllegalArgumentException("cron表达式不能为空");
+        }
+        validateCronExpression(cronExpression);
+        
         MassMessageTask task = MassMessageTask.builder()
                 .taskName(dto.getTaskName())
                 .messageContent(dto.getMessageContent())
                 .targetChatIds(new ArrayList<>(dto.getTargetChatIds()))
                 .messageType(MassMessageTask.MessageType.valueOf(dto.getMessageType()))
-                .scheduleTime(dto.getScheduleTime())
+                .cronExpression(cronExpression.trim())
                 .targetAccountPhone(dto.getTargetAccountPhone())
                 .createdBy(createdBy)
-                .status(dto.getScheduleTime() == null ?
-                        MassMessageTask.TaskStatus.RUNNING :
-                        MassMessageTask.TaskStatus.PENDING)
+                .status(MassMessageTask.TaskStatus.PENDING)
                 .createdTime(LocalDateTime.now())
                 .build();
 
         MassMessageTask savedTask = taskRepository.save(task);
-        log.info("创建群发任务: {} (ID: {}, 账号: {})",
-                task.getTaskName(), savedTask.getId(), task.getTargetAccountPhone());
+        log.info("创建群发任务: {} (ID: {}, 账号: {}, cron: {})",
+                task.getTaskName(), savedTask.getId(), task.getTargetAccountPhone(), cronExpression);
 
-        if (dto.getScheduleTime() == null) {
-            startTask(savedTask.getId());
-        }
+        // 交给调度器管理
+        taskScheduler.scheduleTask(savedTask);
 
         return savedTask.getId();
     }
@@ -106,7 +106,7 @@ public class MassMessageService {
 
         // 尝试获取服务实例（会触发初始化）
         try {
-            TelegramServiceImpl service = clientManager.getAccountService(phoneNumber);
+            com.telegram.server.service.impl.TelegramServiceImpl service = clientManager.getAccountService(phoneNumber);
             if (!service.isClientReady()) {
                 throw new RuntimeException("账号客户端未就绪: " + phoneNumber);
             }
@@ -134,7 +134,7 @@ public class MassMessageService {
 
         try {
             // 从管理器获取账号服务
-            TelegramServiceImpl accountService = clientManager.getAccountService(task.getTargetAccountPhone());
+            com.telegram.server.service.impl.TelegramServiceImpl accountService = clientManager.getAccountService(task.getTargetAccountPhone());
             SimpleTelegramClient client = accountService.getClient();
 
             List<MassMessageLog> batchLogs = new ArrayList<>();
@@ -160,8 +160,13 @@ public class MassMessageService {
                     task.setSuccessCount(task.getSuccessCount() + 1);
 
                 } catch (Exception e) {
-                    log.error("发送失败 to {}: {}", targetChatId, e.getMessage());
-                    batchLogs.add(createLog(task, targetChatId, MassMessageLog.SendStatus.FAILED, e.getMessage()));
+                    // 提取更详细的错误信息
+                    String errorMessage = e.getMessage();
+                    if (errorMessage != null && errorMessage.contains("Chat not found")) {
+                        errorMessage = "聊天不存在或无法访问: " + targetChatId;
+                    }
+                    log.error("发送失败 to {}: {}", targetChatId, errorMessage);
+                    batchLogs.add(createLog(task, targetChatId, MassMessageLog.SendStatus.FAILED, errorMessage));
                     task.setFailureCount(task.getFailureCount() + 1);
                 }
 
@@ -173,13 +178,30 @@ public class MassMessageService {
                 }
             }
 
-            updateTaskStatus(task, MassMessageTask.TaskStatus.COMPLETED);
-            log.info("群发任务完成: {}", task.getTaskName());
+            // 检查任务是否被删除（在执行过程中）
+            if (!taskRepository.existsById(taskId)) {
+                log.warn("任务在执行过程中被删除，停止执行: taskId={}", taskId);
+                return;
+            }
+            
+            // 执行完成后状态变回PENDING，等待下次调度（所有任务都是定时任务）
+            task.setStatus(MassMessageTask.TaskStatus.PENDING);
+            taskRepository.save(task);
+            
+            // 重新调度任务（更新 nextExecuteTime 并调度下次执行）
+            taskScheduler.scheduleTask(task);
+            
+            log.info("定时群发任务执行完成，等待下次调度: taskId={}, nextExecuteTime={}", 
+                    taskId, task.getNextExecuteTime());
 
         } catch (Exception e) {
             log.error("任务执行失败: {}", taskId, e);
-            updateTaskStatus(task, MassMessageTask.TaskStatus.FAILED, e.getMessage());
+            // 检查任务是否还存在，如果已被删除则不更新状态
+            if (taskRepository.existsById(taskId)) {
+                updateTaskStatus(task, MassMessageTask.TaskStatus.FAILED, e.getMessage());
+            }
         } finally {
+            // 从执行标志映射中移除
             taskExecutions.remove(taskId);
         }
     }
@@ -222,59 +244,143 @@ public class MassMessageService {
                 ));
     }
 
-    private TelegramServiceImpl getAccountService(String phone) {
-        return accountServices.computeIfAbsent(phone, this::createAccountService);
-    }
-
-    private TelegramServiceImpl createAccountService(String phone) {
-        log.info("初始化账号服务: {}", phone);
-
-        TelegramSession session = sessionRepository.findByPhoneNumber(phone)
-                .orElseThrow(() -> new RuntimeException("账号不存在: " + phone));
-
-        TelegramServiceImpl service = new TelegramServiceImpl();
-        service.setRuntimeApiId(session.getApiId());
-        service.setRuntimeApiHash(session.getApiHash());
-        service.setRuntimePhoneNumber(session.getPhoneNumber());
-        service.initializeClient(); // 调用初始化
-        return service;
-    }
 
     /**
      * 启动任务
      */
     public void startTask(String taskId) {
-        MassMessageTask task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("任务不存在"));
-        task.setStatus(MassMessageTask.TaskStatus.RUNNING);
+        MassMessageTask task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("任务不存在: " + taskId));
+        
+        // 检查任务状态
+        if (task.getStatus() == MassMessageTask.TaskStatus.RUNNING) {
+            log.warn("任务已经在运行中: taskId={}", taskId);
+            return;
+        }
+        
+        if (task.getStatus() == MassMessageTask.TaskStatus.COMPLETED) {
+            throw new RuntimeException("已完成的任务无法重新启动");
+        }
+        
+        // 所有任务都是定时任务，交给调度器管理
+        task.setStatus(MassMessageTask.TaskStatus.PENDING);
         taskRepository.save(task);
-        // 异步执行任务
-        executeTask(taskId);
+        taskScheduler.scheduleTask(task);
+        log.info("定时任务已启动: taskId={}, cron={}", taskId, task.getCronExpression());
     }
 
     /**
      * 暂停任务
      */
     public void pauseTask(String taskId) {
-        MassMessageTask task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("任务不存在"));
+        MassMessageTask task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("任务不存在: " + taskId));
+        
+        // 检查任务状态
+        if (task.getStatus() == MassMessageTask.TaskStatus.PAUSED) {
+            log.warn("任务已经处于暂停状态: taskId={}", taskId);
+            return;
+        }
+        
+        if (task.getStatus() == MassMessageTask.TaskStatus.COMPLETED) {
+            throw new RuntimeException("已完成的任务无法暂停");
+        }
+        
+        if (task.getStatus() == MassMessageTask.TaskStatus.FAILED) {
+            throw new RuntimeException("失败的任务无法暂停");
+        }
+        
+        // 如果任务正在运行，需要停止执行
+        if (task.getStatus() == MassMessageTask.TaskStatus.RUNNING) {
+            // 设置暂停标志，executeTask会检查并停止
+            AtomicInteger executionFlag = taskExecutions.get(taskId);
+            if (executionFlag != null) {
+                executionFlag.set(0);
+                log.info("已设置任务停止标志: taskId={}", taskId);
+            } else {
+                log.warn("任务执行标志不存在，可能任务已经完成: taskId={}", taskId);
+            }
+        }
+        
+        // 取消定时任务调度
+        taskScheduler.cancelTask(taskId);
+        log.info("已取消定时任务调度: taskId={}", taskId);
+        
         task.setStatus(MassMessageTask.TaskStatus.PAUSED);
         taskRepository.save(task);
-        log.info("暂停群发任务: {}", task.getTaskName());
+        log.info("暂停群发任务: taskId={}, taskName={}", taskId, task.getTaskName());
     }
 
     /**
      * 删除任务
+     * 
+     * @param taskId 任务ID
+     * @throws RuntimeException 如果任务不存在或正在运行中
      */
     @Transactional
     public void deleteTask(String taskId) {
-        MassMessageTask task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("任务不存在"));
+        MassMessageTask task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("任务不存在: " + taskId));
+        
+        // 如果任务正在运行中，先停止执行
         if (task.getStatus() == MassMessageTask.TaskStatus.RUNNING) {
-            throw new RuntimeException("任务正在运行中，无法删除");
+            log.warn("尝试删除运行中的任务，先停止执行: taskId={}", taskId);
+            
+            // 设置暂停标志，停止正在执行的任务
+            AtomicInteger executionFlag = taskExecutions.get(taskId);
+            if (executionFlag != null) {
+                executionFlag.set(0);
+                log.info("已设置停止标志，等待任务执行停止: taskId={}", taskId);
+            }
+            
+            // 等待一小段时间让任务停止（最多等待3秒）
+            int waitCount = 0;
+            while (executionFlag != null && executionFlag.get() == 0 && waitCount < 30) {
+                try {
+                    Thread.sleep(100);
+                    waitCount++;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("等待任务停止时被中断: taskId={}", taskId);
+                    break;
+                }
+            }
+            
+            // 如果任务仍在运行，抛出异常
+            if (taskExecutions.containsKey(taskId)) {
+                throw new RuntimeException("任务正在执行中，无法立即删除。请稍后重试或先暂停任务。");
+            }
         }
+        
+        // 取消定时任务调度
+        try {
+            taskScheduler.cancelTask(taskId);
+            log.info("已取消定时任务调度: taskId={}", taskId);
+        } catch (Exception e) {
+            log.warn("取消定时任务调度失败: taskId={}, error={}", taskId, e.getMessage());
+        }
+        
         // 删除关联日志
-//        logRepository.deleteByTaskId(taskId);
-
+        try {
+            List<MassMessageLog> logs = logRepository.findByTaskId(taskId);
+            long logCount = logs.size();
+            if (logCount > 0) {
+                logRepository.deleteByTaskId(taskId);
+                log.info("已删除任务关联日志: taskId={}, 日志数量={}", taskId, logCount);
+            } else {
+                log.debug("任务没有关联日志，跳过删除: taskId={}", taskId);
+            }
+        } catch (Exception e) {
+            log.error("删除任务关联日志失败: taskId={}, error={}", taskId, e.getMessage(), e);
+            // 不抛出异常，继续删除任务，但记录错误日志
+        }
+        
+        // 从执行标志映射中移除（如果存在）
+        taskExecutions.remove(taskId);
+        
+        // 删除任务
         taskRepository.delete(task);
-        log.info("删除群发任务: {}", task.getTaskName());
+        log.info("删除群发任务完成: taskId={}, taskName={}", taskId, task.getTaskName());
     }
 
     /**
@@ -307,6 +413,19 @@ public class MassMessageService {
         // 敏感词过滤
         if (containsSensitiveWords(dto.getMessageContent())) {
             throw new RuntimeException("消息内容包含敏感词");
+        }
+    }
+    
+    /**
+     * 验证Cron表达式
+     * 
+     * @param cronExpression cron表达式
+     */
+    private void validateCronExpression(String cronExpression) {
+        try {
+            org.springframework.scheduling.support.CronExpression.parse(cronExpression);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("无效的Cron表达式: " + cronExpression + ", 错误: " + e.getMessage());
         }
     }
 
@@ -363,9 +482,10 @@ public class MassMessageService {
      * 发送消息到指定聊天
      */
     private void sendMessageToChat(SimpleTelegramClient client, String chatId, MassMessageTask task) throws Exception {
+        long resolvedChatId = 0;
         try {
             // 解析Chat ID
-            long resolvedChatId = resolveChatId(client, chatId);
+            resolvedChatId = resolveChatId(client, chatId);
 
             // 根据消息类型创建内容
             TdApi.InputMessageContent content = createMessageContent(task.getMessageType(), task.getMessageContent());
@@ -377,23 +497,76 @@ public class MassMessageService {
             // 同步发送并等待结果（30秒超时）
             client.send(sendMessage).get(30, TimeUnit.SECONDS);
 
-            log.debug("消息发送成功: chatId={}, taskId={}", chatId, task.getId());
+            log.debug("消息发送成功: chatId={}, resolvedChatId={}, taskId={}", chatId, resolvedChatId, task.getId());
 
+        } catch (TelegramError e) {
+            // 处理Telegram API错误
+            int errorCode = e.getErrorCode();
+            String errorMessage = e.getMessage();
+            
+            // 根据错误代码提供更详细的错误信息
+            String detailedMessage;
+            if (errorCode == 400) {
+                if (errorMessage != null && errorMessage.contains("Chat not found")) {
+                    detailedMessage = String.format("聊天不存在或无法访问 (原始Chat ID: %s, 解析后: %d). 可能原因: 1) 聊天已被删除 2) 账号没有权限访问该聊天 3) Chat ID格式错误", 
+                            chatId, resolvedChatId);
+                } else {
+                    detailedMessage = String.format("Telegram API错误 400: %s (Chat ID: %s, 解析后: %d)", errorMessage, chatId, resolvedChatId);
+                }
+            } else if (errorCode == 403) {
+                detailedMessage = String.format("没有权限发送消息到该聊天 (Chat ID: %s, 解析后: %d). 可能原因: 1) 账号被踢出群组 2) 群组已禁止发送消息 3) 账号被限制", 
+                        chatId, resolvedChatId);
+            } else if (errorCode == 429) {
+                detailedMessage = String.format("发送频率过高，请稍后重试 (Chat ID: %s)", chatId);
+            } else {
+                detailedMessage = String.format("Telegram API错误 %d: %s (Chat ID: %s, 解析后: %d)", errorCode, errorMessage, chatId, resolvedChatId);
+            }
+            
+            log.error("Telegram API错误: code={}, message={}, chatId={}, resolvedChatId={}", 
+                    errorCode, errorMessage, chatId, resolvedChatId);
+            throw new RuntimeException(detailedMessage, e);
+            
         } catch (NumberFormatException e) {
             throw new RuntimeException("无效的Chat ID格式: " + chatId, e);
         } catch (Exception e) {
+            // 检查是否是TelegramError包装在其他异常中
+            Throwable cause = e.getCause();
+            if (cause instanceof TelegramError) {
+                TelegramError telegramError = (TelegramError) cause;
+                int errorCode = telegramError.getErrorCode();
+                String errorMessage = telegramError.getMessage();
+                
+                String detailedMessage;
+                if (errorCode == 400 && errorMessage != null && errorMessage.contains("Chat not found")) {
+                    detailedMessage = String.format("聊天不存在或无法访问 (Chat ID: %s, 解析后: %d). 可能原因: 1) 聊天已被删除 2) 账号没有权限访问该聊天 3) Chat ID格式错误", 
+                            chatId, resolvedChatId);
+                } else {
+                    detailedMessage = String.format("Telegram API错误 %d: %s (Chat ID: %s, 解析后: %d)", errorCode, errorMessage, chatId, resolvedChatId);
+                }
+                
+                log.error("Telegram API错误 (包装异常): code={}, message={}, chatId={}, resolvedChatId={}", 
+                        errorCode, errorMessage, chatId, resolvedChatId);
+                throw new RuntimeException(detailedMessage, e);
+            }
+            
             throw new RuntimeException("发送消息失败: " + e.getMessage(), e);
         }
     }
 
     /**
      * 解析不同类型的Chat ID
+     * 
+     * Telegram Chat ID 格式说明：
+     * - 超级群组/频道：-100xxxxxxxxxx（完整的负数，如 -1003538112263）
+     * - 基础群组：负数，如 -123456789
+     * - 私聊：正数，如 123456789
+     * - 用户名：@username
      */
     private long resolveChatId(SimpleTelegramClient client, String chatId) throws Exception {
         if (chatId.startsWith("-100")) {
-            // 超级群组：-100xxx -> -xxx
-            long groupId = Long.parseLong(chatId.replace("-100", ""));
-            return -groupId;
+            // 超级群组/频道：直接解析为完整的负数
+            // 例如：-1003538112263 -> -1003538112263
+            return Long.parseLong(chatId);
 
         } else if (chatId.startsWith("@")) {
             // 用户名：需要通过API解析
@@ -407,8 +580,12 @@ public class MassMessageService {
             log.info("用户名解析成功: {} -> chatId={}", username, chat.id);
             return chat.id;
 
+        } else if (chatId.startsWith("-")) {
+            // 基础群组或其他负数格式：直接解析
+            return Long.parseLong(chatId);
+
         } else {
-            // 用户ID
+            // 用户ID（正数）
             return Long.parseLong(chatId);
         }
     }

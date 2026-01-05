@@ -108,4 +108,47 @@ public class AsyncConfig {
         
         return executor;
     }
+
+    /**
+     * 配置群发消息任务专用线程池
+     * 用于执行群发消息任务，支持并发执行多个任务
+     * 
+     * @return 群发消息任务执行器
+     */
+    @Bean("massMessageExecutor")
+    public Executor massMessageExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        
+        // 群发任务线程池配置
+        // 核心线程数：支持同时执行多个群发任务
+        executor.setCorePoolSize(5);
+        
+        // 最大线程数：高峰期可以同时执行更多任务
+        executor.setMaxPoolSize(20);
+        
+        // 队列容量：等待执行的群发任务队列大小
+        executor.setQueueCapacity(100);
+        
+        // 线程空闲时间：超过核心线程数的线程在空闲指定时间后被回收
+        executor.setKeepAliveSeconds(60);
+        
+        // 线程名称前缀：便于日志追踪和问题排查
+        executor.setThreadNamePrefix("MassMessage-");
+        
+        // 拒绝策略：当线程池和队列都满时，由调用线程执行任务
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        
+        // 等待所有任务完成后再关闭线程池
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        
+        // 等待时间：最多等待60秒让任务完成
+        executor.setAwaitTerminationSeconds(60);
+        
+        // 初始化线程池
+        executor.initialize();
+        
+        logger.info("群发消息任务线程池配置完成: 核心线程数=5, 最大线程数=20, 队列容量=100");
+        
+        return executor;
+    }
 }

@@ -23,4 +23,18 @@ public interface MassMessageLogRepository extends MongoRepository<MassMessageLog
      * 根据任务ID和状态查询
      */
     List<MassMessageLog> findByTaskIdAndStatus(String taskId, MassMessageLog.SendStatus status);
+    
+    /**
+     * 根据任务ID删除所有日志
+     * 注意：Spring Data MongoDB 可能不支持直接返回删除数量，
+     * 这里先查询再删除，确保删除操作成功
+     * 
+     * @param taskId 任务ID
+     */
+    default void deleteByTaskId(String taskId) {
+        List<MassMessageLog> logs = findByTaskId(taskId);
+        if (!logs.isEmpty()) {
+            deleteAll(logs);
+        }
+    }
 }

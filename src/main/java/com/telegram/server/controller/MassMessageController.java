@@ -6,8 +6,6 @@ import com.telegram.server.dto.TaskDetailVO;
 import com.telegram.server.entity.MassMessageTask;
 import com.telegram.server.service.MassMessageService;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,16 +28,20 @@ public class MassMessageController {
      * 获取任务列表（分页）
      */
     @GetMapping("/tasks")
-    public ResponseEntity<Map<String, Object>> getTasks(@RequestParam(value = "page", defaultValue = "1") int page, @RequestParam(value = "size", defaultValue = "10") int size) {
+    public ResponseEntity<Map<String, Object>> getTasks(
+            @RequestParam(value = "page", defaultValue = "1") int page, 
+            @RequestParam(value = "size", defaultValue = "10") int size) {
         Map<String, Object> response = new HashMap<>();
-        PageResponseDTO<MassMessageTask> taskPage = massMessageService.getTasks(page, size);
-
-        // 获取统计信息
-//        Object stats = massMessageService.getStats();
-        response.put("success", true);
-        response.put("data", taskPage);
-        ResponseEntity.ok(response);
-        return ResponseEntity.ok(response);
+        try {
+            PageResponseDTO<MassMessageTask> taskPage = massMessageService.getTasks(page, size);
+            response.put("success", true);
+            response.put("data", taskPage);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "获取任务列表失败: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     /**
@@ -48,55 +50,109 @@ public class MassMessageController {
     @PostMapping("/task")
     public ResponseEntity<Map<String, Object>> createTask(@RequestBody MassMessageTaskDTO dto) {
         Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-//        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
-        String currentUser = "";
-        String taskId = massMessageService.createTask(dto, currentUser);
-        return ResponseEntity.ok(response);
+        try {
+            String currentUser = ""; // TODO: 从安全上下文获取当前用户
+            String taskId = massMessageService.createTask(dto, currentUser);
+            response.put("success", true);
+            response.put("message", "任务创建成功");
+            response.put("taskId", taskId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", "参数错误: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST).body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "创建任务失败: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
+    /**
+     * 查看任务详情（含日志）
+     */
+    @GetMapping("/task/{taskId}")
+    public ResponseEntity<Map<String, Object>> getTaskDetail(@PathVariable("taskId") String taskId) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            TaskDetailVO detail = massMessageService.getTaskDetail(taskId);
+            response.put("success", true);
+            response.put("data", detail);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND).body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "获取任务详情失败: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
     /**
      * 启动任务
      */
     @PostMapping("/task/{taskId}/start")
-    public ResponseEntity<Map<String, Object>> startTask(@PathVariable String taskId) {
+    public ResponseEntity<Map<String, Object>> startTask(@PathVariable("taskId") String taskId) {
         Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        massMessageService.startTask(taskId);
-        return ResponseEntity.ok(response);
+        try {
+            massMessageService.startTask(taskId);
+            response.put("success", true);
+            response.put("message", "任务已启动");
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST).body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "启动任务失败: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     /**
      * 暂停任务
      */
     @PostMapping("/task/{taskId}/pause")
-    public ResponseEntity<Map<String, Object>> pauseTask(@PathVariable String taskId) {
+    public ResponseEntity<Map<String, Object>> pauseTask(@PathVariable("taskId") String taskId) {
         Map<String, Object> response = new HashMap<>();
-        massMessageService.pauseTask(taskId);
-        response.put("success", true);
-        return ResponseEntity.ok(response);
+        try {
+            massMessageService.pauseTask(taskId);
+            response.put("success", true);
+            response.put("message", "任务已暂停");
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST).body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "暂停任务失败: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     /**
      * 删除任务
      */
     @DeleteMapping("/task/{taskId}")
-    public ResponseEntity<Map<String, Object>> deleteTask(@PathVariable String taskId) {
+    public ResponseEntity<Map<String, Object>> deleteTask(@PathVariable("taskId") String taskId) {
         Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        massMessageService.deleteTask(taskId);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * 获取任务详情（含日志）
-     */
-    @GetMapping("/task/{taskId}")
-    public ResponseEntity<Map<String, Object>> getTaskDetail(@PathVariable String taskId) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        TaskDetailVO detail = massMessageService.getTaskDetail(taskId);
-        response.put("data", detail);
-        return ResponseEntity.ok(response);
+        try {
+            massMessageService.deleteTask(taskId);
+            response.put("success", true);
+            response.put("message", "任务已删除");
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST).body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "删除任务失败: " + e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 }

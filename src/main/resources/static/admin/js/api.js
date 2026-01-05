@@ -438,10 +438,17 @@ const API = {
         },
 
         /**
-         * 启动/暂停任务
+         * 启动任务
          */
-        toggleTask: (taskId, action) => {
-            return HttpClient.post(`/mass-message/task/${taskId}/${action}`);
+        startTask: (taskId) => {
+            return HttpClient.post(`/mass-message/task/${taskId}/start`);
+        },
+        
+        /**
+         * 暂停任务
+         */
+        pauseTask: (taskId) => {
+            return HttpClient.post(`/mass-message/task/${taskId}/pause`);
         },
 
         /**

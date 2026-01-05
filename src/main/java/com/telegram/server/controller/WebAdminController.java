@@ -97,14 +97,14 @@ public class WebAdminController {
         try {
             PageRequestDTO pageRequest = new PageRequestDTO(page, size);
             PageResponseDTO<AccountDTO> pageResponse = sessionService.getAccountsPage(pageRequest);
-            List lkde = new ArrayList();
-            AccountDTO accountDTO = new AccountDTO();
-            accountDTO.setId("1");
-            accountDTO.setPhoneNumber("1222");
-            accountDTO.setAuthStatus("READY");
-
-            lkde.add(accountDTO);
-            pageResponse.setContent(lkde);
+//            List lkde = new ArrayList();
+//            AccountDTO accountDTO = new AccountDTO();
+//            accountDTO.setId("1");
+//            accountDTO.setPhoneNumber("1222");
+//            accountDTO.setAuthStatus("READY");
+//
+//            lkde.add(accountDTO);
+//            pageResponse.setContent(lkde);
             
             response.put("success", true);
             response.put("data", pageResponse);

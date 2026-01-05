@@ -172,7 +172,7 @@ public class MessageStorageMonitor {
      * 定时输出性能统计信息
      * 根据配置的间隔时间执行
      */
-    @Scheduled(fixedDelayString = "#{messageStorageConfig.statisticsInterval * 1000}")
+//    @Scheduled(fixedDelayString = "#{messageStorageConfig.statisticsInterval * 1000}")
     public void outputStatistics() {
         if (!config.isMonitoringEnabled()) {
             return;

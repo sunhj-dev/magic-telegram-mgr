@@ -13,13 +13,9 @@ import com.telegram.server.util.ImageProcessingUtil;
 import com.telegram.server.util.PathValidator;
 import com.telegram.server.util.RetryHandler;
 import com.telegram.server.util.TimeZoneUtil;
-import it.tdlight.Init;
-import it.tdlight.Log;
-import it.tdlight.Slf4JLogMessageHandler;
 import it.tdlight.client.*;
 import it.tdlight.jni.TdApi;
 import it.tdlight.util.UnsupportedNativeLibraryException;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,11 +34,14 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 单账号Telegram服务类
@@ -188,22 +187,44 @@ public class TelegramServiceImpl implements ITelegramService {
     /**
      * Telegram会话数据存储路径
      * 用于保存数据库文件和下载文件
+     * 默认位置：项目根目录下的data/telegram-session
+     * 注意：每个账号应该使用独立的session目录以避免文件锁定冲突
      */
-    @Value("${telegram.session.path:./telegram-session}")
+    @Value("${telegram.session.path:./data/telegram-session}")
+    private String baseSessionPath;
+    
+    /**
+     * 当前账号的session路径
+     * 根据手机号动态设置，格式：{baseSessionPath}/{phoneNumber}
+     */
     private String sessionPath;
     
     /**
-     * 下载文件目录路径
+     * 下载文件目录路径（基础路径）
      * 从配置文件读取，用于存储TDLib下载的文件
+     * 默认位置：项目根目录下的data/telegram-downloads
      */
-    @Value("${telegram.session.downloads.path:${java.io.tmpdir}/telegram-downloads}")
+    @Value("${telegram.session.downloads.path:./data/telegram-downloads}")
+    private String baseDownloadsPath;
+    
+    /**
+     * 当前账号的下载文件目录路径
+     * 根据手机号动态设置，格式：{baseDownloadsPath}/{phoneNumber}
+     */
     private String downloadsPath;
     
     /**
-     * 下载临时目录路径
+     * 下载临时目录路径（基础路径）
      * 从配置文件读取，用于存储TDLib下载过程中的临时文件
+     * 默认位置：项目根目录下的data/telegram-downloads/temp
      */
-    @Value("${telegram.session.downloads.temp-path:${java.io.tmpdir}/telegram-downloads/temp}")
+    @Value("${telegram.session.downloads.temp-path:./data/telegram-downloads/temp}")
+    private String baseDownloadsTempPath;
+    
+    /**
+     * 当前账号的下载临时目录路径
+     * 根据手机号动态设置，格式：{baseDownloadsTempPath}/{phoneNumber}
+     */
     private String downloadsTempPath;
 
     /**
@@ -217,7 +238,7 @@ public class TelegramServiceImpl implements ITelegramService {
      * SOCKS5代理服务器端口
      * 用于网络代理连接
      */
-    @Value("${proxy.socks5.port:7890}")
+    @Value("${proxy.socks5.port:16632}")
     private int proxyPort;
 
     /**
@@ -240,48 +261,15 @@ public class TelegramServiceImpl implements ITelegramService {
 
     /**
      * 初始化Telegram服务
+     * 注意：此方法不再自动执行，初始化由TelegramClientManager统一管理
+     * 保留此方法以支持ITelegramService接口，但不执行任何操作
      */
     @Override
-    @PostConstruct
     public void init() {
-        try {
-            logger.info("正在初始化Telegram服务基础组件...");
-            
-            // 初始化Session管理服务
-            sessionService.init();
-            
-            // 从MongoDB加载配置（优先）或从配置管理器加载配置
-            loadConfigFromMongoDB();
-            
-            // 检查API配置，只有配置完整时才初始化TDLight库
-            if (validateApiConfiguration()) {
-                logger.info("检测到有效的API配置，正在初始化TDLight库...");
-                
-                // 初始化TDLight原生库
-                Init.init();
-                
-                // 设置日志级别
-                Log.setLogMessageHandler(1, new Slf4JLogMessageHandler());
-                
-                // 创建客户端工厂
-                clientFactory = new SimpleTelegramClientFactory();
-                
-                logger.info("TDLight库初始化完成");
-                
-                // 自动尝试使用默认配置初始化客户端
-                // 如果存在有效的session，将自动恢复登录状态
-                autoInitializeClient();
-            } else {
-                logger.info("API配置不完整，跳过TDLight库初始化。应用将以配置模式启动。");
-            }
-            
-            logger.info("Telegram服务基础组件初始化完成");
-            
-        } catch (Exception e) {
-            logger.error("初始化Telegram服务失败", e);
-            // 不抛出异常，允许应用继续启动
-            logger.warn("Telegram服务初始化失败，但应用将继续启动以支持配置管理");
-        }
+        // 初始化逻辑已移至TelegramClientManager
+        // 这里只初始化Session管理服务（如果需要）
+        // sessionService.init(); // 由TelegramClientManager统一管理
+        logger.debug("TelegramServiceImpl实例已创建，初始化由TelegramClientManager管理");
     }
     
     /**
@@ -358,7 +346,8 @@ public class TelegramServiceImpl implements ITelegramService {
         // 同时设置运行时配置
         this.runtimeApiId = this.apiId;
         this.runtimeApiHash = this.apiHash;
-        this.runtimePhoneNumber = this.phoneNumber;
+        // 使用setRuntimePhoneNumber方法，它会自动设置账号特定的session路径
+        this.setRuntimePhoneNumber(this.phoneNumber);
     }
     
     /**
@@ -371,6 +360,9 @@ public class TelegramServiceImpl implements ITelegramService {
     private void activateAndRestoreSession(TelegramSession session) {
         // 激活此session
         sessionService.activateSession(session.getPhoneNumber());
+        
+        // 确保路径已初始化
+        ensurePathsInitialized();
         
         // 从MongoDB恢复session文件到本地
         sessionService.restoreSessionFiles(session.getPhoneNumber(), sessionPath);
@@ -425,6 +417,9 @@ public class TelegramServiceImpl implements ITelegramService {
                 TelegramSession session = sessionService.createOrUpdateSession(
                     this.phoneNumber, this.apiId, this.apiHash);
                 
+                // 确保路径已初始化
+                ensurePathsInitialized();
+                
                 // 保存本地session文件到MongoDB
                 sessionService.saveSessionFiles(this.phoneNumber, sessionPath);
                 
@@ -457,7 +452,10 @@ public class TelegramServiceImpl implements ITelegramService {
                 // 创建或更新MongoDB中的session
                 sessionService.createOrUpdateSession(currentPhoneNumber, currentApiId, currentApiHash);
                 
-                // 保存临时session文件到MongoDB
+                // 确保路径已初始化
+                ensurePathsInitialized();
+                
+                // 保存session文件到MongoDB
                 sessionService.saveSessionFiles(currentPhoneNumber, sessionPath);
                 
                 // 更新session状态为已认证
@@ -466,15 +464,11 @@ public class TelegramServiceImpl implements ITelegramService {
                 
                 logger.info("成功保存session到MongoDB: {}", currentPhoneNumber);
                 
-                // 异步清理临时文件（延迟执行，确保TDLight完成所有操作）
-                CompletableFuture.runAsync(() -> {
-                    try {
-                        Thread.sleep(5000); // 等待5秒确保所有操作完成
-                        cleanupTempSessionFiles();
-                    } catch (Exception e) {
-                        logger.warn("清理临时session文件时发生错误: {}", e.getMessage());
-                    }
-                });
+                // 注意：不再异步清理临时文件，因为：
+                // 1. session文件需要保留以便下次启动时恢复
+                // 2. cleanupTempSessionFiles 只清理真正的临时目录（以"telegram-session-"开头的目录）
+                // 3. 当前正在使用的session目录不会被清理（通过路径比较过滤）
+                // 4. 如果清理了session文件，下次启动时无法恢复登录状态
             }
         } catch (Exception e) {
             logger.error("保存session到MongoDB失败", e);
@@ -534,6 +528,9 @@ public class TelegramServiceImpl implements ITelegramService {
      */
     private void handleNewMessage(TdApi.UpdateNewMessage update) {
         try {
+            if (true){
+                return;
+            }
             TdApi.Message message = update.message;
             
             // 消息类型过滤：只处理文本消息和图片消息
@@ -964,9 +961,9 @@ public class TelegramServiceImpl implements ITelegramService {
      */
     private void setMessageStatus(ObjectNode messageJson, TdApi.Message message) {
         messageJson.put("是否置顶", message.isPinned ? "【是】" : "【否】");
-        messageJson.put("是否可编辑", message.canBeEdited ? "【是】" : "【否】");
-        messageJson.put("是否可删除", message.canBeDeletedOnlyForSelf || message.canBeDeletedForAllUsers ? "【是】" : "【否】");
-        messageJson.put("是否可转发", message.canBeForwarded ? "【是】" : "【否】");
+//        messageJson.put("是否可编辑", message.canBeEdited ? "【是】" : "【否】");
+//        messageJson.put("是否可删除", message.canBeDeletedOnlyForSelf || message.canBeDeletedForAllUsers ? "【是】" : "【否】");
+//        messageJson.put("是否可转发", message.canBeForwarded ? "【是】" : "【否】");
         messageJson.put("是否可保存", message.canBeSaved ? "【是】" : "【否】");
     }
     
@@ -1207,9 +1204,9 @@ public class TelegramServiceImpl implements ITelegramService {
      */
     private void setMessageStatusInfo(TelegramMessage telegramMessage, TdApi.Message message) {
         telegramMessage.setIsPinned(message.isPinned);
-        telegramMessage.setCanBeEdited(message.canBeEdited);
-        telegramMessage.setCanBeDeleted(message.canBeDeletedOnlyForSelf || message.canBeDeletedForAllUsers);
-        telegramMessage.setCanBeForwarded(message.canBeForwarded);
+//        telegramMessage.setCanBeEdited(message.canBeEdited);
+//        telegramMessage.setCanBeDeleted(message.canBeDeletedOnlyForSelf || message.canBeDeletedForAllUsers);
+//        telegramMessage.setCanBeForwarded(message.canBeForwarded);
         telegramMessage.setCanBeSaved(message.canBeSaved);
     }
 
@@ -1672,6 +1669,9 @@ public class TelegramServiceImpl implements ITelegramService {
      */
     private void createSessionDirectory() {
         try {
+            // 确保路径已初始化
+            ensurePathsInitialized();
+            
             Path configuredSessionDir = Paths.get(sessionPath);
             if (!Files.exists(configuredSessionDir)) {
                 Files.createDirectories(configuredSessionDir);
@@ -1696,6 +1696,9 @@ public class TelegramServiceImpl implements ITelegramService {
         if (!sessionInfo.hasValidSession || sessionInfo.phoneNumber == null || sessionInfo.activeSession == null) {
             return sessionInfo;
         }
+        
+        // 确保路径已初始化
+        ensurePathsInitialized();
         
         logger.info("正在从MongoDB恢复session数据到临时目录: {}", sessionPath);
         try {
@@ -1730,32 +1733,23 @@ public class TelegramServiceImpl implements ITelegramService {
      * @date 2025-01-21
      */
     private SessionInfo validateRestoredSession(SessionInfo sessionInfo) {
+        // 确保路径已初始化
+        ensurePathsInitialized();
+        
         File sessionDirFile = new File(sessionPath);
         boolean hasValidSession = false;
         
         if (sessionDirFile.exists() && sessionDirFile.isDirectory()) {
-            File[] files = sessionDirFile.listFiles();
-            if (files != null) {
-                logger.info("恢复后的session目录包含 {} 个文件", files.length);
-                
-                // 检查是否有TDLib数据库文件
-                for (File file : files) {
-                    logger.info("恢复的文件: {} (大小: {} bytes)", file.getName(), file.length());
-                    if (file.getName().equals("td.binlog") || 
-                        file.getName().startsWith("db.sqlite") ||
-                        file.getName().endsWith(".db")) {
-                        hasValidSession = true;
-                        logger.info("检测到有效的TDLib数据库文件: {}", file.getName());
-                    }
-                }
-                
-                if (!hasValidSession) {
-                    logger.warn("MongoDB中的session数据不完整，缺少TDLib数据库文件，将回退到正常认证流程");
-                    sessionInfo.hasValidSession = false;
-                }
-            } else {
-                logger.warn("session目录为空，将回退到正常认证流程");
+            // 递归查找TDLib数据库文件
+            hasValidSession = findTDLibDatabaseFiles(sessionDirFile);
+            
+            if (!hasValidSession) {
+                logger.warn("MongoDB中的session数据不完整，缺少TDLib数据库文件。目录结构:");
+                logDirectoryStructure(sessionDirFile, 0);
+                logger.warn("将回退到正常认证流程。请检查MongoDB中的session数据是否完整保存。");
                 sessionInfo.hasValidSession = false;
+            } else {
+                logger.info("验证通过：检测到有效的TDLib数据库文件");
             }
         } else {
             logger.warn("session目录不存在或不是目录: {}，将回退到正常认证流程", sessionPath);
@@ -1763,6 +1757,71 @@ public class TelegramServiceImpl implements ITelegramService {
         }
         
         return sessionInfo;
+    }
+    
+    /**
+     * 递归查找TDLib数据库文件
+     * @param dir 要搜索的目录
+     * @return 是否找到有效的数据库文件
+     */
+    private boolean findTDLibDatabaseFiles(File dir) {
+        if (dir == null || !dir.exists() || !dir.isDirectory()) {
+            return false;
+        }
+        
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return false;
+        }
+        
+        for (File file : files) {
+            if (file.isFile()) {
+                String fileName = file.getName();
+                if (fileName.equals("td.binlog") || 
+                    fileName.startsWith("db.sqlite") ||
+                    fileName.endsWith(".db") ||
+                    fileName.endsWith(".binlog")) {
+                    logger.info("检测到有效的TDLib数据库文件: {} (大小: {} bytes)", 
+                               file.getAbsolutePath(), file.length());
+                    return true;
+                }
+            } else if (file.isDirectory()) {
+                // 递归检查子目录
+                if (findTDLibDatabaseFiles(file)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 递归打印目录结构（用于调试）
+     * @param dir 目录
+     * @param depth 深度（用于缩进）
+     */
+    private void logDirectoryStructure(File dir, int depth) {
+        if (dir == null || !dir.exists()) {
+            return;
+        }
+        
+        String indent = "  ".repeat(depth);
+        if (dir.isDirectory()) {
+            logger.warn("{}[目录] {}", indent, dir.getName());
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile()) {
+                        logger.warn("{}  - {} (大小: {} bytes)", indent, file.getName(), file.length());
+                    } else if (file.isDirectory()) {
+                        logDirectoryStructure(file, depth + 1);
+                    }
+                }
+            }
+        } else {
+            logger.warn("{}  - {} (大小: {} bytes)", indent, dir.getName(), dir.length());
+        }
     }
     
     /**
@@ -1818,6 +1877,9 @@ public class TelegramServiceImpl implements ITelegramService {
      * @date 2025-01-21
      */
     private void createTDLibDirectories(TDLibSettings settings) {
+        // 确保路径已初始化
+        ensurePathsInitialized();
+        
         Path sessionDir = Paths.get(sessionPath);
         Path databaseDir = sessionDir.resolve("database");
         Path downloadsDir = Paths.get(downloadsPath);
@@ -1826,11 +1888,251 @@ public class TelegramServiceImpl implements ITelegramService {
         // 验证路径配置
         validatePaths();
         
+        // 检查并清理可能损坏的数据库文件
+        cleanupCorruptedDatabaseFiles(databaseDir);
+        
         // 使用重试机制确保目录存在
         createDirectoriesWithRetry(sessionDir, databaseDir, downloadsDir, downloadsTempDir);
         
         settings.setDatabaseDirectoryPath(databaseDir);
         settings.setDownloadedFilesDirectoryPath(downloadsDir);
+    }
+    
+    /**
+     * 清理可能损坏的数据库文件
+     * 如果检测到损坏的SQLite文件，删除它们让TDLib重新创建
+     * 同时清理可能被锁定的文件
+     * 
+     * @param databaseDir 数据库目录
+     */
+    private void cleanupCorruptedDatabaseFiles(Path databaseDir) {
+        if (!Files.exists(databaseDir) || !Files.isDirectory(databaseDir)) {
+            return;
+        }
+        
+        try {
+            List<Path> corruptedFiles = new ArrayList<>();
+            List<Path> lockFiles = new ArrayList<>();
+            
+            try (Stream<Path> paths = Files.list(databaseDir)) {
+                for (Path file : paths.collect(Collectors.toList())) {
+                    if (Files.isRegularFile(file)) {
+                        String fileName = file.getFileName().toString();
+                        
+                        // 检查SQLite文件是否损坏
+                        if (fileName.contains("sqlite") || fileName.endsWith(".db")) {
+                            if (isCorruptedSQLiteFile(file)) {
+                                corruptedFiles.add(file);
+                                logger.warn("检测到损坏的SQLite文件: {}", file);
+                            }
+                        }
+                        
+                        // 检查binlog文件（可能被锁定）
+                        if (fileName.equals("td.binlog") || fileName.endsWith(".binlog")) {
+                            // 尝试检查文件是否被锁定（通过尝试重命名来检测）
+                            if (isFileLocked(file)) {
+                                lockFiles.add(file);
+                                logger.warn("检测到可能被锁定的文件: {}", file);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 删除损坏的文件和锁定的文件
+            List<Path> filesToDelete = new ArrayList<>();
+            filesToDelete.addAll(corruptedFiles);
+            filesToDelete.addAll(lockFiles);
+            
+            if (!filesToDelete.isEmpty()) {
+                logger.warn("发现 {} 个需要清理的文件（损坏: {}, 锁定: {}），正在清理...", 
+                           filesToDelete.size(), corruptedFiles.size(), lockFiles.size());
+                
+                // 先等待一小段时间，确保之前的进程已释放文件锁
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                
+                for (Path fileToDelete : filesToDelete) {
+                    try {
+                        // 尝试多次删除，因为文件可能正在被释放
+                        int maxRetries = 3;
+                        boolean deleted = false;
+                        for (int i = 0; i < maxRetries; i++) {
+                            try {
+                                Files.delete(fileToDelete);
+                                deleted = true;
+                                logger.info("已删除文件: {}", fileToDelete);
+                                break;
+                            } catch (IOException e) {
+                                if (i < maxRetries - 1) {
+                                    logger.debug("删除文件失败，重试中 ({}/{}): {}", i + 1, maxRetries, fileToDelete);
+                                    Thread.sleep(500);
+                                } else {
+                                    throw e;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.error("删除文件失败: {}", fileToDelete, e);
+                    }
+                }
+                logger.info("文件清理完成，TDLib将重新创建数据库");
+            }
+        } catch (IOException e) {
+            logger.error("检查数据库文件时发生错误", e);
+        }
+    }
+    
+    /**
+     * 检查文件是否被锁定
+     * 通过尝试重命名文件来检测
+     * 
+     * @param file 文件路径
+     * @return 是否被锁定
+     */
+    private boolean isFileLocked(Path file) {
+        try {
+            // 尝试创建一个临时名称来检测文件是否被锁定
+            Path tempPath = file.resolveSibling(file.getFileName().toString() + ".tmp");
+            Files.move(file, tempPath);
+            // 如果成功，说明文件没有被锁定，再移回来
+            Files.move(tempPath, file);
+            return false;
+        } catch (IOException e) {
+            // 如果移动失败，可能文件被锁定
+            logger.debug("文件可能被锁定: {}, 错误: {}", file, e.getMessage());
+            return true;
+        }
+    }
+    
+    /**
+     * 强制清理锁定的binlog文件
+     * 在TDLib初始化之前调用，避免文件锁定错误
+     * 
+     * @param databaseDir 数据库目录
+     */
+    private void forceCleanupLockedBinlogFiles(Path databaseDir) {
+        if (!Files.exists(databaseDir) || !Files.isDirectory(databaseDir)) {
+            return;
+        }
+        
+        try {
+            List<Path> binlogFiles = new ArrayList<>();
+            
+            try (Stream<Path> paths = Files.list(databaseDir)) {
+                for (Path file : paths.collect(Collectors.toList())) {
+                    if (Files.isRegularFile(file)) {
+                        String fileName = file.getFileName().toString();
+                        // 查找所有binlog文件
+                        if (fileName.equals("td.binlog") || fileName.endsWith(".binlog")) {
+                            binlogFiles.add(file);
+                        }
+                    }
+                }
+            }
+            
+            if (!binlogFiles.isEmpty()) {
+                logger.warn("发现 {} 个binlog文件，将在TDLib初始化前清理以避免文件锁定错误", binlogFiles.size());
+                
+                // 等待一小段时间，确保之前的进程已释放文件锁
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                
+                for (Path binlogFile : binlogFiles) {
+                    try {
+                        // 尝试多次删除
+                        int maxRetries = 5;
+                        boolean deleted = false;
+                        for (int i = 0; i < maxRetries; i++) {
+                            try {
+                                // 先尝试重命名（如果文件被锁定，重命名会失败）
+                                Path backupPath = binlogFile.resolveSibling(binlogFile.getFileName().toString() + ".old");
+                                try {
+                                    Files.move(binlogFile, backupPath);
+                                    // 重命名成功，再删除
+                                    Files.delete(backupPath);
+                                } catch (IOException e) {
+                                    // 重命名失败，直接尝试删除
+                                    Files.delete(binlogFile);
+                                }
+                                deleted = true;
+                                logger.info("已清理binlog文件: {}", binlogFile);
+                                break;
+                            } catch (IOException e) {
+                                if (i < maxRetries - 1) {
+                                    logger.debug("清理binlog文件失败，重试中 ({}/{}): {}", i + 1, maxRetries, binlogFile);
+                                    Thread.sleep(1000 * (i + 1)); // 递增延迟
+                                } else {
+                                    logger.warn("无法清理binlog文件，可能需要手动删除: {}", binlogFile);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.error("清理binlog文件时发生错误: {}", binlogFile, e);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            logger.error("检查binlog文件时发生错误", e);
+        }
+    }
+    
+    /**
+     * 检查SQLite文件是否损坏
+     * 
+     * @param file SQLite文件路径
+     * @return 是否损坏
+     */
+    private boolean isCorruptedSQLiteFile(Path file) {
+        try {
+            if (!Files.exists(file) || Files.size(file) < 16) {
+                return true;
+            }
+            
+            byte[] header = new byte[16];
+            try (java.io.InputStream is = Files.newInputStream(file)) {
+                int bytesRead = is.read(header);
+                if (bytesRead < 16) {
+                    return true;
+                }
+            }
+            
+            String headerStr = new String(header, java.nio.charset.StandardCharsets.UTF_8);
+            return !headerStr.startsWith("SQLite format 3");
+        } catch (IOException e) {
+            logger.warn("检查SQLite文件时发生错误: {}", file, e);
+            return true; // 如果无法读取，认为可能损坏
+        }
+    }
+    
+    /**
+     * 确保路径已初始化
+     * 如果sessionPath为null，则使用基础路径或根据手机号设置
+     */
+    private void ensurePathsInitialized() {
+        if (sessionPath == null) {
+            String phone = runtimePhoneNumber != null ? runtimePhoneNumber : phoneNumber;
+            if (phone != null && !phone.isEmpty()) {
+                // 如果已设置手机号，使用账号特定路径
+                String safePhoneNumber = sanitizePhoneNumberForPath(phone);
+                this.sessionPath = baseSessionPath + "/" + safePhoneNumber;
+                this.downloadsPath = baseDownloadsPath + "/" + safePhoneNumber;
+                this.downloadsTempPath = baseDownloadsTempPath + "/" + safePhoneNumber;
+                logger.debug("自动初始化账号特定路径: phoneNumber={}, sessionPath={}", phone, this.sessionPath);
+            } else {
+                // 否则使用基础路径
+                this.sessionPath = baseSessionPath;
+                this.downloadsPath = baseDownloadsPath;
+                this.downloadsTempPath = baseDownloadsTempPath;
+                logger.debug("使用基础路径: sessionPath={}", this.sessionPath);
+            }
+        }
     }
     
     /**
@@ -1974,14 +2276,15 @@ public class TelegramServiceImpl implements ITelegramService {
     
     /**
      * 初始化TDLib工厂
+     * 使用共享的TDLib初始化器，确保只初始化一次
      * @author sunhj
      * @date 2025-01-21
      */
     private void initializeTDLibFactory() throws UnsupportedNativeLibraryException {
         if (clientFactory == null) {
-            Init.init();
-            Log.setLogMessageHandler(1, new Slf4JLogMessageHandler());
-            clientFactory = new SimpleTelegramClientFactory();
+            // 使用共享的TDLib初始化器
+            clientFactory = com.telegram.server.config.TDLibInitializer.getClientFactory();
+            logger.debug("使用共享的TDLib客户端工厂");
         }
     }
     
@@ -2008,18 +2311,38 @@ public class TelegramServiceImpl implements ITelegramService {
      */
     private void restoreSessionData(String phoneNumber) {
         if (phoneNumber != null && !phoneNumber.isEmpty()) {
+            // 确保路径已初始化
+            ensurePathsInitialized();
+            
+            // 检查session是否存在
             Optional<TelegramSession> sessionOpt = sessionService.getSessionByPhoneNumber(phoneNumber);
-            if (sessionOpt.isPresent()) {
-                TelegramSession session = sessionOpt.get();
-                if (session.getDatabaseFiles() != null && !session.getDatabaseFiles().isEmpty()) {
-                    logger.info("正在从MongoDB恢复session数据: {}", phoneNumber);
-                    boolean restored = sessionService.restoreSessionFiles(phoneNumber, sessionPath);
-                    if (restored) {
-                        logger.info("成功从MongoDB恢复session数据");
-                    } else {
-                        logger.warn("从MongoDB恢复session数据失败");
-                    }
-                }
+            if (!sessionOpt.isPresent()) {
+                logger.warn("未找到session数据，无法恢复: phoneNumber={}", phoneNumber);
+                return;
+            }
+            
+            TelegramSession session = sessionOpt.get();
+            
+            // 检查是否有session数据可以恢复
+            // 支持两种存储方式：直接存储（databaseFiles）和GridFS存储（databaseFilesGridfsId）
+            boolean hasDatabaseFiles = session.getDatabaseFiles() != null && !session.getDatabaseFiles().isEmpty();
+            boolean hasGridfsId = session.getDatabaseFilesGridfsId() != null && !session.getDatabaseFilesGridfsId().isEmpty();
+            
+            if (!hasDatabaseFiles && !hasGridfsId) {
+                logger.warn("Session数据不完整，无法恢复: phoneNumber={}, 既没有databaseFiles也没有GridFS ID", phoneNumber);
+                return;
+            }
+            
+            logger.info("正在从MongoDB恢复session数据: {}, sessionPath={}, hasDatabaseFiles={}, hasGridfsId={}", 
+                    phoneNumber, sessionPath, hasDatabaseFiles, hasGridfsId);
+            
+            // 调用restoreSessionFiles，它会处理GridFS和直接存储两种情况
+            // restoreSessionFiles内部会调用gridfsStorageManager.loadSession来加载GridFS数据
+            boolean restored = sessionService.restoreSessionFiles(phoneNumber, sessionPath);
+            if (restored) {
+                logger.info("成功从MongoDB恢复session数据: {}", phoneNumber);
+            } else {
+                logger.error("从MongoDB恢复session数据失败: {}，可能需要重新认证", phoneNumber);
             }
         }
     }
@@ -2048,6 +2371,9 @@ public class TelegramServiceImpl implements ITelegramService {
      * @date 2025-01-21
      */
     private void createTDLibDirectoriesForClient(TDLibSettings settings) {
+        // 确保路径已初始化
+        ensurePathsInitialized();
+        
         Path sessionDir = Paths.get(sessionPath);
         Path databaseDir = sessionDir.resolve("database");
         Path downloadsDir = Paths.get(downloadsPath);
@@ -2063,6 +2389,38 @@ public class TelegramServiceImpl implements ITelegramService {
         } catch (IOException e) {
             logger.error("创建TDLib目录失败", e);
             throw new RuntimeException("无法创建TDLib必需的目录", e);
+        }
+        
+        // 注意：在恢复session文件之后，不应该清理已恢复的文件
+        // 只在数据库目录为空或文件确实损坏时才清理
+        // 检查数据库目录是否有文件
+        boolean hasDatabaseFiles = false;
+        try {
+            if (Files.exists(databaseDir) && Files.isDirectory(databaseDir)) {
+                try (Stream<Path> files = Files.list(databaseDir)) {
+                    hasDatabaseFiles = files.anyMatch(Files::isRegularFile);
+                }
+            }
+        } catch (IOException e) {
+            logger.warn("检查数据库目录文件时出错: {}", e.getMessage());
+        }
+        
+        // 注意：对于已恢复的session文件，完全跳过清理操作
+        // 因为：
+        // 1. 这些文件是从MongoDB恢复的，应该是有效的
+        // 2. TDLib会在启动时自动处理文件锁定问题
+        // 3. 如果删除这些文件，会导致无法恢复登录状态
+        if (!hasDatabaseFiles) {
+            logger.info("数据库目录为空，清理可能损坏的文件");
+            cleanupCorruptedDatabaseFiles(databaseDir);
+            forceCleanupLockedBinlogFiles(databaseDir);
+        } else {
+            logger.info("检测到已恢复的session文件，完全跳过清理操作，保留所有现有文件");
+            // 不删除任何文件，包括binlog文件
+            // 因为：
+            // 1. binlog文件可能包含重要的session状态信息
+            // 2. TDLib会在启动时自动处理文件锁定问题
+            // 3. 如果文件被锁定，TDLib会给出明确的错误信息，我们可以根据错误信息处理
         }
         
         settings.setDatabaseDirectoryPath(databaseDir);
@@ -3551,26 +3909,88 @@ public class TelegramServiceImpl implements ITelegramService {
             // 在关闭前保存session数据到MongoDB
             if (client != null && currentAuthState instanceof TdApi.AuthorizationStateReady) {
                 logger.info("正在保存session数据到MongoDB...");
-                saveSessionToMongoDB();
+                try {
+                    // 同步保存session，确保数据完全写入MongoDB
+                    saveSessionToMongoDBSync();
+                    logger.info("Session数据已成功保存到MongoDB");
+                } catch (Exception e) {
+                    logger.error("保存session数据到MongoDB失败", e);
+                    // 即使保存失败，也继续关闭流程
+                }
+            }
+            
+            // 等待一小段时间，确保TDLib完成所有文件写入操作
+            try {
+                Thread.sleep(2000); // 等待2秒，确保文件写入完成
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.warn("等待文件写入完成时被中断");
             }
             
             if (client != null) {
-                client.close();
+                try {
+                    client.close();
+                    logger.info("Telegram客户端已关闭");
+                } catch (Exception e) {
+                    logger.warn("关闭Telegram客户端时发生错误: {}", e.getMessage());
+                }
                 client = null;
             }
             
             if (clientFactory != null) {
-                clientFactory.close();
+                try {
+                    clientFactory.close();
+                    logger.info("Telegram客户端工厂已关闭");
+                } catch (Exception e) {
+                    logger.warn("关闭Telegram客户端工厂时发生错误: {}", e.getMessage());
+                }
                 clientFactory = null;
             }
             
-            // 清理临时session文件
-            cleanupTempSessionFiles();
+            // 注意：不再清理临时session文件，因为：
+            // 1. session文件需要保留以便下次启动时恢复
+            // 2. cleanupTempSessionFiles 只清理真正的临时目录，不会删除当前session目录
+            // 3. 如果清理了session文件，下次启动时无法恢复登录状态
             
             logger.info("Telegram服务已关闭");
             
         } catch (Exception e) {
             logger.error("关闭Telegram服务时发生错误", e);
+        }
+    }
+    
+    /**
+     * 同步保存session数据到MongoDB（用于关闭时保存）
+     * 确保数据完全写入后再返回
+     */
+    private void saveSessionToMongoDBSync() {
+        try {
+            String currentPhoneNumber = runtimePhoneNumber != null ? runtimePhoneNumber : phoneNumber;
+            Integer currentApiId = runtimeApiId != null ? runtimeApiId : apiId;
+            String currentApiHash = runtimeApiHash != null ? runtimeApiHash : apiHash;
+            
+            if (currentPhoneNumber != null && currentApiId != null && currentApiHash != null) {
+                // 创建或更新MongoDB中的session
+                sessionService.createOrUpdateSession(currentPhoneNumber, currentApiId, currentApiHash);
+                
+                // 确保路径已初始化
+                ensurePathsInitialized();
+                
+                // 同步保存session文件到MongoDB（关键：必须同步完成）
+                sessionService.saveSessionFiles(currentPhoneNumber, sessionPath);
+                
+                // 更新session状态为已认证
+                sessionService.updateAuthenticationStatus(currentPhoneNumber, true);
+                sessionService.updateAuthState(currentPhoneNumber, "READY");
+                
+                logger.info("成功保存session到MongoDB: {} (同步完成)", currentPhoneNumber);
+            } else {
+                logger.warn("无法保存session到MongoDB: 缺少必要的配置信息 (phoneNumber={}, apiId={}, apiHash={})", 
+                        currentPhoneNumber, currentApiId, currentApiHash != null ? "已设置" : "未设置");
+            }
+        } catch (Exception e) {
+            logger.error("保存session到MongoDB失败", e);
+            throw e; // 重新抛出异常，让调用者知道保存失败
         }
     }
     
@@ -3957,15 +4377,22 @@ public class TelegramServiceImpl implements ITelegramService {
 
     /**
      * 解析Chat ID（支持多种格式）
+     * 
+     * Telegram Chat ID 格式说明：
+     * - 超级群组/频道：-100xxxxxxxxxx（完整的负数，如 -1003538112263）
+     * - 基础群组：负数，如 -123456789
+     * - 私聊：正数，如 123456789
+     * - 用户名：@username
+     * 
      * @param chatId 原始Chat ID字符串
      * @return 解析后的长整型Chat ID
      * @throws Exception 解析失败时抛出异常
      */
     private long parseChatId(String chatId) throws Exception {
         if (chatId.startsWith("-100")) {
-            // 超级群组
-            long groupId = Long.parseLong(chatId.replace("-100", ""));
-            return -groupId; // TDLight使用负数表示群组
+            // 超级群组/频道：直接解析为完整的负数
+            // 例如：-1003538112263 -> -1003538112263
+            return Long.parseLong(chatId);
         } else if (chatId.startsWith("@")) {
             // 用户名（需要先获取chatId）
             String username = chatId.substring(1);
@@ -3974,8 +4401,11 @@ public class TelegramServiceImpl implements ITelegramService {
             TdApi.Chat chat = result.get();
 
             return chat.id;
+        } else if (chatId.startsWith("-")) {
+            // 基础群组或其他负数格式：直接解析
+            return Long.parseLong(chatId);
         } else {
-            // 用户ID
+            // 用户ID（正数）
             return Long.parseLong(chatId);
         }
     }
@@ -4030,9 +4460,39 @@ public class TelegramServiceImpl implements ITelegramService {
 
     /**
      * 设置运行时手机号
+     * 同时设置账号特定的session路径，避免多个账号之间的文件锁定冲突
      */
     public void setRuntimePhoneNumber(String runtimePhoneNumber) {
         this.runtimePhoneNumber = runtimePhoneNumber;
+        // 为每个账号设置独立的session目录
+        if (runtimePhoneNumber != null && !runtimePhoneNumber.isEmpty()) {
+            String safePhoneNumber = sanitizePhoneNumberForPath(runtimePhoneNumber);
+            this.sessionPath = baseSessionPath + "/" + safePhoneNumber;
+            this.downloadsPath = baseDownloadsPath + "/" + safePhoneNumber;
+            this.downloadsTempPath = baseDownloadsTempPath + "/" + safePhoneNumber;
+            logger.info("为账号设置独立的session路径: phoneNumber={}, sessionPath={}", 
+                       runtimePhoneNumber, this.sessionPath);
+        } else {
+            // 如果没有手机号，使用基础路径
+            this.sessionPath = baseSessionPath;
+            this.downloadsPath = baseDownloadsPath;
+            this.downloadsTempPath = baseDownloadsTempPath;
+        }
+    }
+    
+    /**
+     * 清理手机号中的特殊字符，用于文件路径
+     * @param phoneNumber 原始手机号
+     * @return 清理后的手机号（可用于文件路径）
+     */
+    private String sanitizePhoneNumberForPath(String phoneNumber) {
+        if (phoneNumber == null) {
+            return "unknown";
+        }
+        // 移除或替换特殊字符：+、空格、括号等
+        return phoneNumber.replaceAll("[^a-zA-Z0-9_-]", "_")
+                         .replaceAll("_+", "_")  // 多个下划线合并为一个
+                         .replaceAll("^_|_$", ""); // 移除开头和结尾的下划线
     }
 
 }

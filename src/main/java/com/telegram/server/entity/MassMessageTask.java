@@ -43,8 +43,11 @@ public class MassMessageTask {
     /** 任务状态：PENDING, RUNNING, COMPLETED, FAILED, PAUSED */
     private TaskStatus status = TaskStatus.PENDING;
 
-    /** 计划执行时间（null表示立即执行） */
-    private String scheduleTime;
+    /** Cron表达式（null表示立即执行，空字符串表示不执行） */
+    private String cronExpression;
+    
+    /** 下次执行时间（由调度器计算） */
+    private LocalDateTime nextExecuteTime;
 
     /** 创建时间 */
     private LocalDateTime createdTime = LocalDateTime.now();

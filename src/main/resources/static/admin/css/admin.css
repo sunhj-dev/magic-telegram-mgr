@@ -37,9 +37,8 @@ body {
     font-weight: 600;
 }
 
-.sidebar-header i {
-    margin-right: 10px;
-    color: #ffd700;
+.sidebar-header {
+    /* 图标已替换为 emoji，不再需要特殊样式 */
 }
 
 .sidebar-menu {

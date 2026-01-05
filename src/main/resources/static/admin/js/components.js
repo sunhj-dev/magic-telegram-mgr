@@ -67,7 +67,7 @@ class Pagination extends Component {
         html += `
             <button class="pagination-btn" data-page="${this.options.page - 1}" 
                     ${this.options.page <= 1 ? 'disabled' : ''}>
-                <i class="fas fa-chevron-left"></i>
+                ◀
             </button>
         `;
         
@@ -100,7 +100,7 @@ class Pagination extends Component {
         html += `
             <button class="pagination-btn" data-page="${this.options.page + 1}" 
                     ${this.options.page >= totalPages ? 'disabled' : ''}>
-                <i class="fas fa-chevron-right"></i>
+                ▶
             </button>
         `;
         

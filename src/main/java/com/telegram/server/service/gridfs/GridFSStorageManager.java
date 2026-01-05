@@ -525,13 +525,22 @@ public class GridFSStorageManager {
      * @throws IOException 加载过程中的IO异常
      */
     private void loadDatabaseFilesFromGridFS(TelegramSession session) throws IOException {
+        String gridfsId = session.getDatabaseFilesGridfsId();
+        if (gridfsId == null || gridfsId.isEmpty()) {
+            logger.warn("Session的databaseFilesGridfsId为空，无法从GridFS加载: sessionId={}", session.getId());
+            return;
+        }
+        
         Map<String, String> databaseFiles = loadFilesFromGridFS(
             session.getId(), 
-            session.getDatabaseFilesGridfsId(), 
+            gridfsId, 
             "数据库文件"
         );
-        if (databaseFiles != null) {
+        if (databaseFiles != null && !databaseFiles.isEmpty()) {
             session.setDatabaseFiles(databaseFiles);
+            logger.info("从GridFS成功加载数据库文件: sessionId={}, 文件数量={}", session.getId(), databaseFiles.size());
+        } else {
+            logger.warn("从GridFS加载数据库文件返回空: sessionId={}, gridfsId={}", session.getId(), gridfsId);
         }
     }
 
@@ -542,13 +551,22 @@ public class GridFSStorageManager {
      * @throws IOException 加载过程中的IO异常
      */
     private void loadDownloadedFilesFromGridFS(TelegramSession session) throws IOException {
+        String gridfsId = session.getDownloadedFilesGridfsId();
+        if (gridfsId == null || gridfsId.isEmpty()) {
+            logger.debug("Session的downloadedFilesGridfsId为空，跳过下载文件加载: sessionId={}", session.getId());
+            return;
+        }
+        
         Map<String, String> downloadedFiles = loadFilesFromGridFS(
             session.getId(), 
-            session.getDownloadedFilesGridfsId(), 
+            gridfsId, 
             "下载文件"
         );
-        if (downloadedFiles != null) {
+        if (downloadedFiles != null && !downloadedFiles.isEmpty()) {
             session.setDownloadedFiles(downloadedFiles);
+            logger.info("从GridFS成功加载下载文件: sessionId={}, 文件数量={}", session.getId(), downloadedFiles.size());
+        } else {
+            logger.debug("从GridFS加载下载文件返回空: sessionId={}, gridfsId={}", session.getId(), gridfsId);
         }
     }
 

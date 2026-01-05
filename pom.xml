@@ -35,7 +35,7 @@
             <dependency>
                 <groupId>it.tdlight</groupId>
                 <artifactId>tdlight-java-bom</artifactId>
-                <version>3.4.0+td.1.8.26</version>
+                <version>3.4.4+td.1.8.52</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -54,7 +54,6 @@
         <dependency>
             <groupId>it.tdlight</groupId>
             <artifactId>tdlight-java</artifactId>
-            <!-- 版本由BOM管理 -->
         </dependency>
 
         <!-- TDLight Natives - 多平台支持 -->
@@ -63,7 +62,6 @@
             <groupId>it.tdlight</groupId>
             <artifactId>tdlight-natives</artifactId>
             <classifier>macos_amd64</classifier>
-            <!-- 版本由BOM管理 -->
         </dependency>
         
         <!-- Linux x86_64 (GNU GCC with OpenSSL 1.x) -->
@@ -75,12 +73,12 @@
 <!--        </dependency>-->
         
         <!-- Linux x86_64 (Clang with OpenSSL 3.x) - 用于Docker容器 -->
-        <dependency>
-            <groupId>it.tdlight</groupId>
-            <artifactId>tdlight-natives</artifactId>
-            <classifier>linux_amd64_clang_ssl3</classifier>
-            <!-- 版本由BOM管理 -->
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>it.tdlight</groupId>-->
+<!--            <artifactId>tdlight-natives</artifactId>-->
+<!--            <classifier>linux_amd64_clang_ssl3</classifier>-->
+<!--            &lt;!&ndash; 版本由BOM管理 &ndash;&gt;-->
+<!--        </dependency>-->
         
         <!-- Windows x86_64 -->
 <!--        <dependency>-->
@@ -145,6 +143,7 @@
                     <source>17</source>
                     <target>17</target>
                     <encoding>UTF-8</encoding>
+                    <parameters>true</parameters>
                     <compilerArgs>
                         <arg>--add-modules</arg>
                         <arg>java.base</arg>

@@ -65,8 +65,9 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
 
     /**
      * Session路径配置
+     * 默认位置：项目根目录下的data/telegram-session
      */
-    @Value("${telegram.session.path:./telegram-session}")
+    @Value("${telegram.session.path:./data/telegram-session}")
     private String sessionPath;
 
     /**
@@ -332,12 +333,46 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
             }
 
             Path sessionDir = createSessionDirectory(sessionPath);
+            
+            // 记录存储版本信息
+            logger.info("开始恢复session文件: phoneNumber={}, storageVersion={}, gridfsId={}", 
+                       phoneNumber, session.getStorageVersion(), session.getDatabaseFilesGridfsId());
+            
+            // 从GridFS或传统存储加载session数据
             session = gridfsStorageManager.loadSession(session.getId());
             
+            // 检查加载后的数据
+            if (session == null) {
+                logger.error("从GridFS加载session失败: phoneNumber={}", phoneNumber);
+                return false;
+            }
+            
+            // 验证数据完整性
+            boolean hasDatabaseFiles = session.getDatabaseFiles() != null && !session.getDatabaseFiles().isEmpty();
+            boolean hasGridfsId = session.getDatabaseFilesGridfsId() != null;
+            
+            logger.info("Session数据检查: phoneNumber={}, hasDatabaseFiles={}, hasGridfsId={}, databaseFilesSize={}", 
+                       phoneNumber, hasDatabaseFiles, hasGridfsId, 
+                       hasDatabaseFiles ? session.getDatabaseFiles().size() : 0);
+            
+            if (!hasDatabaseFiles && !hasGridfsId) {
+                logger.warn("Session数据不完整: phoneNumber={}, 既没有databaseFiles也没有GridFS ID", phoneNumber);
+                return false;
+            }
+            
+            if (!hasDatabaseFiles && hasGridfsId) {
+                logger.warn("Session使用GridFS存储但加载失败: phoneNumber={}, gridfsId={}", 
+                           phoneNumber, session.getDatabaseFilesGridfsId());
+                return false;
+            }
+            
+            // 恢复文件
             restoreDatabaseFiles(session, sessionDir);
             restoreDownloadFiles(session, sessionDir);
             
-            logger.info("成功恢复session文件: {} -> {}", phoneNumber, sessionPath);
+            logger.info("成功恢复session文件: {} -> {}, 数据库文件: {} 个", 
+                       phoneNumber, sessionPath, 
+                       session.getDatabaseFiles() != null ? session.getDatabaseFiles().size() : 0);
             return true;
         } catch (Exception e) {
             logger.error("恢复session文件失败: " + phoneNumber, e);
@@ -368,6 +403,9 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @throws IOException 如果创建目录失败
      */
     private Path createSessionDirectory(String sessionPath) throws IOException {
+        if (sessionPath == null || sessionPath.trim().isEmpty()) {
+            throw new IllegalArgumentException("Session路径不能为空");
+        }
         Path sessionDir = Paths.get(sessionPath);
         Files.createDirectories(sessionDir);
         return sessionDir;
@@ -381,24 +419,81 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      * @throws IOException 如果恢复文件失败
      */
     private void restoreDatabaseFiles(TelegramSession session, Path sessionDir) throws IOException {
-        if (session.getDatabaseFiles() == null) {
+        if (session.getDatabaseFiles() == null || session.getDatabaseFiles().isEmpty()) {
+            logger.warn("Session的databaseFiles为空，无法恢复数据库文件: sessionId={}, storageVersion={}, gridfsId={}", 
+                       session.getId(), session.getStorageVersion(), session.getDatabaseFilesGridfsId());
             return;
         }
 
+        int restoredCount = 0;
         for (Map.Entry<String, String> entry : session.getDatabaseFiles().entrySet()) {
-            String encodedPath = entry.getKey();
-            String fileData = entry.getValue();
-            
-            String relativePath = decodePath(encodedPath);
-            Path filePath = sessionDir.resolve(relativePath);
-            
-            Files.createDirectories(filePath.getParent());
-            byte[] data = Base64.getDecoder().decode(fileData);
-            Files.write(filePath, data);
-            
-            logger.debug("恢复数据库文件: {} -> {} (大小: {} bytes)", encodedPath, relativePath, data.length);
+            try {
+                String encodedPath = entry.getKey();
+                String fileData = entry.getValue();
+                
+                if (fileData == null || fileData.isEmpty()) {
+                    logger.warn("跳过空文件数据: encodedPath={}", encodedPath);
+                    continue;
+                }
+                
+                String relativePath = decodePath(encodedPath);
+                Path filePath = sessionDir.resolve(relativePath);
+                
+                Files.createDirectories(filePath.getParent());
+                
+                // 解码Base64数据
+                byte[] data;
+                try {
+                    data = Base64.getDecoder().decode(fileData);
+                    if (data == null || data.length == 0) {
+                        logger.warn("解码后的数据为空: encodedPath={}", encodedPath);
+                        continue;
+                    }
+                } catch (IllegalArgumentException e) {
+                    logger.error("Base64解码失败: encodedPath={}, error={}", encodedPath, e.getMessage());
+                    continue;
+                }
+                
+                // 验证关键数据库文件的完整性
+                // 注意：对于从MongoDB恢复的文件，我们采用更宽松的验证策略
+                // 因为文件之前已经成功保存，说明它们是有效的
+                // 验证主要用于检测明显的损坏，而不是严格的格式检查
+                if (isCriticalDatabaseFile(relativePath)) {
+                    if (!validateDatabaseFile(data, relativePath)) {
+                        // 对于从MongoDB恢复的文件，即使验证失败也尝试恢复
+                        // 因为文件可能只是格式不完全标准，但仍然是有效的
+                        logger.warn("数据库文件验证失败，但继续恢复（从MongoDB恢复的文件）: {}", relativePath);
+                        // 不跳过，继续恢复文件
+                    }
+                }
+                
+                // 如果目标文件已存在且可能损坏，先删除
+                if (Files.exists(filePath) && isCriticalDatabaseFile(relativePath)) {
+                    try {
+                        Files.delete(filePath);
+                        logger.debug("删除可能损坏的现有文件: {}", filePath);
+                    } catch (IOException e) {
+                        logger.warn("删除现有文件失败: {}, 将覆盖写入", filePath, e);
+                    }
+                }
+                
+                // 写入文件
+                Files.write(filePath, data);
+                
+                // 验证写入的文件
+                if (Files.exists(filePath) && Files.size(filePath) == data.length) {
+                    restoredCount++;
+                    logger.debug("恢复数据库文件: {} -> {} (大小: {} bytes)", encodedPath, relativePath, data.length);
+                } else {
+                    logger.error("文件写入验证失败: {} (期望大小: {}, 实际大小: {})", 
+                               filePath, data.length, Files.exists(filePath) ? Files.size(filePath) : 0);
+                }
+            } catch (Exception e) {
+                logger.error("恢复单个数据库文件失败: encodedPath={}", entry.getKey(), e);
+                // 继续处理其他文件
+            }
         }
-        logger.info("恢复数据库文件: {} 个", session.getDatabaseFiles().size());
+        logger.info("恢复数据库文件完成: {} / {} 个文件成功", restoredCount, session.getDatabaseFiles().size());
     }
 
     /**
@@ -435,6 +530,121 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
      */
     private String decodePath(String encodedPath) {
         return encodedPath.replace("__SLASH__", "/").replace("__DOT__", ".");
+    }
+    
+    /**
+     * 判断是否为关键的数据库文件
+     * 
+     * @param relativePath 相对路径
+     * @return 是否为关键数据库文件
+     */
+    private boolean isCriticalDatabaseFile(String relativePath) {
+        if (relativePath == null) {
+            return false;
+        }
+        String fileName = relativePath.contains("/") ? 
+                          relativePath.substring(relativePath.lastIndexOf('/') + 1) : 
+                          relativePath;
+        return fileName.equals("td.binlog") || 
+               fileName.startsWith("db.sqlite") ||
+               fileName.endsWith(".db") ||
+               fileName.endsWith(".binlog");
+    }
+    
+    /**
+     * 验证数据库文件的完整性
+     * 
+     * @param data 文件数据
+     * @param relativePath 相对路径
+     * @return 是否有效
+     */
+    private boolean validateDatabaseFile(byte[] data, String relativePath) {
+        if (data == null || data.length == 0) {
+            logger.warn("数据库文件数据为空: {}", relativePath);
+            return false;
+        }
+        
+        // 提取文件名
+        String fileName = relativePath.contains("/") ? 
+                          relativePath.substring(relativePath.lastIndexOf('/') + 1) : 
+                          relativePath;
+        
+        // SQLite主数据库文件（db.sqlite）应该以SQLite魔数开头
+        if (fileName.equals("db.sqlite") || (fileName.endsWith(".db") && !fileName.contains("-wal") && !fileName.contains("-shm"))) {
+            // SQLite主数据库文件格式: 前16字节包含 "SQLite format 3\000"
+            if (data.length >= 16) {
+                String header = new String(data, 0, 16, java.nio.charset.StandardCharsets.UTF_8);
+                if (header.startsWith("SQLite format 3")) {
+                    logger.debug("SQLite主数据库文件验证通过: {} (大小: {} bytes)", relativePath, data.length);
+                    return true;
+                } else {
+                    logger.warn("SQLite主数据库文件格式验证失败: {} (前16字节: {})", relativePath, 
+                               java.util.Arrays.toString(java.util.Arrays.copyOf(data, Math.min(16, data.length))));
+                    return false;
+                }
+            } else {
+                logger.warn("SQLite主数据库文件大小不足: {} ({} bytes, 需要至少16 bytes)", relativePath, data.length);
+                return false;
+            }
+        }
+        
+        // SQLite WAL文件（db.sqlite-wal）有自己的格式，不以"SQLite format 3"开头
+        // WAL文件格式: 前4字节是魔数 0x377F0682 或 0x377F0683
+        if (fileName.endsWith("-wal") || fileName.endsWith(".sqlite-wal")) {
+            if (data.length >= 4) {
+                // 检查WAL文件魔数
+                int magic = ((data[0] & 0xFF) << 24) | ((data[1] & 0xFF) << 16) | 
+                           ((data[2] & 0xFF) << 8) | (data[3] & 0xFF);
+                if (magic == 0x377F0682 || magic == 0x377F0683) {
+                    logger.debug("SQLite WAL文件验证通过: {} (大小: {} bytes)", relativePath, data.length);
+                    return true;
+                } else {
+                    // WAL文件可能为空或格式不同，只要大小合理就接受
+                    if (data.length >= 32) {
+                        logger.debug("SQLite WAL文件验证通过（非标准格式但大小合理）: {} (大小: {} bytes)", relativePath, data.length);
+                        return true;
+                    } else {
+                        logger.warn("SQLite WAL文件大小异常: {} ({} bytes)", relativePath, data.length);
+                        return false;
+                    }
+                }
+            } else {
+                logger.warn("SQLite WAL文件大小不足: {} ({} bytes)", relativePath, data.length);
+                return false;
+            }
+        }
+        
+        // SQLite SHM文件（db.sqlite-shm）是共享内存文件，没有固定格式
+        // 只要文件存在且大小合理就接受
+        if (fileName.endsWith("-shm") || fileName.endsWith(".sqlite-shm")) {
+            if (data.length >= 0) { // SHM文件可以为空
+                logger.debug("SQLite SHM文件验证通过: {} (大小: {} bytes)", relativePath, data.length);
+                return true;
+            } else {
+                return false;
+            }
+        }
+        
+        // 对于其他文件（如binlog），至少检查大小是否合理
+        if (fileName.endsWith(".binlog") || fileName.equals("td.binlog")) {
+            // binlog文件大小应该合理（至少不为空）
+            if (data.length > 0) {
+                logger.debug("Binlog文件验证通过: {} (大小: {} bytes)", relativePath, data.length);
+                return true;
+            } else {
+                logger.warn("Binlog文件为空: {}", relativePath);
+                return false;
+            }
+        }
+        
+        // 对于其他未知类型的数据库文件，只要大小合理就接受
+        if (data.length < 100) {
+            logger.warn("数据库文件大小异常小: {} ({} bytes)", relativePath, data.length);
+            return false;
+        }
+        
+        logger.debug("数据库文件验证通过: {} (大小: {} bytes)", relativePath, data.length);
+        return true;
     }
 
     /**

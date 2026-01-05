@@ -97,10 +97,10 @@ telegram:
   
   # 原有配置保持不变
   session:
-    path: /Users/sunhj/Downloads/telegram-session  # 使用系统临时目录，主要依赖MongoDB存储
+    path: ./data/telegram-session  # Session文件存储目录，位于项目根目录下的data目录
     downloads:
-      path: /Users/sunhj/Downloads/telegram-downloads  # 下载文件临时目录
-      temp-path: /Users/sunhj/Downloads/telegram-downloads/temp  # 下载临时目录
+      path: ./data/telegram-downloads  # 下载文件存储目录，位于项目根目录下的data目录
+      temp-path: ./data/telegram-downloads/temp  # 下载临时目录，位于项目根目录下的data目录
     
     # Session存储配置
     storage:
