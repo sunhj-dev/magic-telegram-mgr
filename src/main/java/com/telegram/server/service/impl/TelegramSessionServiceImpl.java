@@ -18,7 +18,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,7 +26,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Telegram Session管理服务
@@ -96,8 +94,10 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
         this.instanceId = generateInstanceId();
         logger.info("TelegramSessionService初始化完成，实例ID: {}", instanceId);
         
-        // 清理之前此实例的session状态
-        deactivateInstanceSessions();
+        // 清理所有之前活跃的session状态
+        // 注意：由于instanceId每次重启都会变化，所以需要停用所有isActive=true的session
+        // 恢复session时会重新激活它们（使用新的instanceId）
+        deactivateAllActiveSessions();
     }
 
     /**
@@ -117,18 +117,43 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
     }
 
     /**
-     * 停用当前实例的所有session
+     * 停用所有活跃的session
+     * 
+     * 服务重启后，instanceId会变化，所以需要停用所有之前活跃的session。
+     * 恢复session时会重新激活它们（使用新的instanceId）。
+     * 
+     * 这样做的原因：
+     * 1. instanceId每次重启都会变化（包含时间戳）
+     * 2. 旧的instanceId的session仍然标记为isActive=true，但实际上没有服务在使用
+     * 3. 恢复session时，会调用activateSession()重新激活它们
      */
-    private void deactivateInstanceSessions() {
+    private void deactivateAllActiveSessions() {
         try {
-            List<TelegramSession> sessions = sessionRepository.findByInstanceIdAndIsActiveTrue(instanceId);
-            for (TelegramSession session : sessions) {
-                session.deactivate();
-                sessionRepository.save(session);
+            // 查询所有活跃的session（不管instanceId）
+            List<TelegramSession> activeSessions = sessionRepository.findByIsActiveTrue();
+            
+            if (activeSessions.isEmpty()) {
+                logger.info("没有需要停用的活跃session");
+                return;
             }
-            logger.info("已停用实例 {} 的 {} 个session", instanceId, sessions.size());
+            
+            int deactivatedCount = 0;
+            for (TelegramSession session : activeSessions) {
+                try {
+                    // 停用session（清除instanceId，设置isActive=false）
+                    session.deactivate();
+                    sessionRepository.save(session);
+                    deactivatedCount++;
+                    logger.debug("已停用session: {} (原instanceId: {})", 
+                            session.getPhoneNumber(), session.getInstanceId());
+                } catch (Exception e) {
+                    logger.warn("停用session失败: {}", session.getPhoneNumber(), e);
+                }
+            }
+            
+            logger.info("已停用 {} 个活跃session（服务重启前的状态），将在恢复时重新激活", deactivatedCount);
         } catch (Exception e) {
-            logger.error("停用实例session失败", e);
+            logger.error("停用活跃session失败", e);
         }
     }
 
@@ -147,13 +172,24 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
         TelegramSession session;
         if (existingSession.isPresent()) {
             session = existingSession.get();
-            session.setApiId(apiId);
-            session.setApiHash(apiHash);
+            // 更新API配置（只有当提供非null值时才更新）
+            if (apiId != null) {
+                session.setApiId(apiId);
+            }
+            if (apiHash != null) {
+                session.setApiHash(apiHash);
+            }
             session.setUpdatedTime(LocalDateTime.now());
-            logger.info("更新已存在的session: {}", phoneNumber);
+            logger.info("更新已存在的session: {} (apiId={}, apiHash={})", phoneNumber, 
+                    apiId != null ? apiId : "未更新", apiHash != null ? "已更新" : "未更新");
         } else {
             session = new TelegramSession(phoneNumber, apiId, apiHash);
-            logger.info("创建新的session: {}", phoneNumber);
+            // 新创建的session，如果没有设置authState，默认为WAITING
+            if (session.getAuthState() == null) {
+                session.setAuthState("WAITING");
+            }
+            logger.info("创建新的session: {} (状态: {}, apiId={}, apiHash={})", phoneNumber, 
+                    session.getAuthState(), apiId != null ? apiId : "null", apiHash != null ? "已设置" : "null");
         }
         
         return sessionRepository.save(session);

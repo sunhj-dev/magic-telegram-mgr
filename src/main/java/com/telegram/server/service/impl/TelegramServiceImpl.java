@@ -1294,14 +1294,25 @@ public class TelegramServiceImpl implements ITelegramService {
             // 授权成功后立即获取聊天列表以启用实时消息接收
             initializeMessageReceiving();
             
-            // 保存session到MongoDB
-            saveSessionToMongoDB();
-            
-            // 激活session状态
+            // 同步保存session到MongoDB（确保状态正确保存）
             String currentPhoneNumber = runtimePhoneNumber != null ? runtimePhoneNumber : phoneNumber;
             if (currentPhoneNumber != null) {
-                sessionService.activateSession(currentPhoneNumber);
-                logger.info("✅ Session已激活: {}", currentPhoneNumber);
+                try {
+                    // 使用同步方法确保状态正确保存
+                    saveSessionToMongoDBSync();
+                    
+                    // 激活session状态
+                    sessionService.activateSession(currentPhoneNumber);
+                    logger.info("✅ Session已激活: {}", currentPhoneNumber);
+                } catch (Exception e) {
+                    logger.error("保存session状态失败: {}", currentPhoneNumber, e);
+                    // 即使保存失败，也尝试激活session
+                    try {
+                        sessionService.activateSession(currentPhoneNumber);
+                    } catch (Exception ex) {
+                        logger.error("激活session失败: {}", currentPhoneNumber, ex);
+                    }
+                }
             }
         } else if (authState instanceof TdApi.AuthorizationStateWaitPhoneNumber) {
             logger.info("⏳ 等待输入手机号码 - 请调用 /api/telegram/phone 接口提交手机号");
@@ -1420,11 +1431,8 @@ public class TelegramServiceImpl implements ITelegramService {
             }
             
             // 检查API配置是否已经相同
-            if (this.runtimeApiId != null && this.runtimeApiId.equals(appId) && 
-                this.runtimeApiHash != null && this.runtimeApiHash.equals(appHash)) {
-                logger.info("API配置未变更，无需重新初始化客户端");
-                return true;
-            }
+            boolean apiConfigSame = this.runtimeApiId != null && this.runtimeApiId.equals(appId) && 
+                                   this.runtimeApiHash != null && this.runtimeApiHash.equals(appHash);
             
             // 更新运行时配置
             this.runtimeApiId = appId;
@@ -1433,6 +1441,18 @@ public class TelegramServiceImpl implements ITelegramService {
             // 同时更新基础配置
             this.apiId = appId;
             this.apiHash = appHash;
+            
+            // 如果API配置相同且客户端已初始化，则无需重新初始化
+            if (apiConfigSame && client != null && isClientReady()) {
+                logger.info("API配置未变更且客户端已初始化，无需重新初始化");
+                return true;
+            }
+            
+            // 如果API配置相同但客户端未初始化，需要初始化客户端
+            if (apiConfigSame && (client == null || !isClientReady())) {
+                logger.info("API配置未变更，但客户端未初始化，需要初始化客户端");
+                // 继续执行初始化逻辑
+            }
             
             logger.info("API配置更新: appId={}, appHash={}", appId, appHash.substring(0, 8) + "...");
             

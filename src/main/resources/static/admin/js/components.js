@@ -453,6 +453,49 @@ class Modal extends Component {
     }
     
     /**
+     * 静态方法：显示自定义模态框
+     * @param {Object} options - 模态框选项
+     * @param {string} options.title - 标题
+     * @param {string} options.content - 内容（HTML字符串）
+     * @param {string} options.width - 宽度（可选）
+     * @param {Function} options.onConfirm - 确认回调（可选）
+     * @param {Function} options.onCancel - 取消回调（可选）
+     * @param {boolean} options.showCancel - 是否显示取消按钮（默认true）
+     */
+    static show(options = {}) {
+        const {
+            title = '提示',
+            content = '',
+            width = '600px',
+            onConfirm = () => {},
+            onCancel = () => {},
+            showCancel = true,
+            cancelText = '关闭',
+            confirmText = '确认'
+        } = options;
+        
+        const modal = new Modal({
+            title,
+            content,
+            showCancel,
+            cancelText,
+            confirmText,
+            onConfirm,
+            onCancel
+        });
+        
+        // 设置宽度
+        const modalElement = modal.container?.querySelector('.modal');
+        if (modalElement && width) {
+            modalElement.style.width = width;
+            modalElement.style.maxWidth = '90%';
+        }
+        
+        modal.show();
+        return modal;
+    }
+    
+    /**
      * 静态方法：显示信息对话框
      * @param {string} message - 消息内容
      * @param {Object} options - 其他选项

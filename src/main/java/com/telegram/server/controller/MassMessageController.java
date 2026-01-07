@@ -6,6 +6,7 @@ import com.telegram.server.dto.TaskDetailVO;
 import com.telegram.server.entity.MassMessageTask;
 import com.telegram.server.service.MassMessageService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +18,7 @@ import java.util.Map;
  *
  * @author sunhj
  */
+@Slf4j
 @RestController
 @RequestMapping("/admin/mass-message")
 @RequiredArgsConstructor
@@ -72,7 +74,7 @@ public class MassMessageController {
      * 查看任务详情（含日志）
      */
     @GetMapping("/task/{taskId}")
-    public ResponseEntity<Map<String, Object>> getTaskDetail(@PathVariable("taskId") String taskId) {
+    public ResponseEntity<Map<String, Object>> getTaskDetail(@PathVariable(value = "taskId") String taskId) {
         Map<String, Object> response = new HashMap<>();
         try {
             TaskDetailVO detail = massMessageService.getTaskDetail(taskId);
@@ -84,6 +86,7 @@ public class MassMessageController {
             response.put("message", e.getMessage());
             return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND).body(response);
         } catch (Exception e) {
+            log.error("获取任务详情失败: taskId={}", taskId, e);
             response.put("success", false);
             response.put("message", "获取任务详情失败: " + e.getMessage());
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).body(response);

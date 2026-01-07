@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -101,24 +102,56 @@ public class TelegramClientManager {
     /**
      * 获取指定账号的 TelegramService 实例
      * 如果不存在则自动创建并初始化
+     * 根据账号状态选择合适的创建方法：
+     * - READY状态：使用createAccountService（已认证账号）
+     * - WAITING或其他状态：使用createAccountServiceForNewAccount（未认证账号）
      *
      * @param phoneNumber 账号手机号
      * @return TelegramServiceImpl 实例
-     * @throws RuntimeException 如果账号不存在或未认证
+     * @throws RuntimeException 如果账号不存在
      */
     public TelegramServiceImpl getAccountService(String phoneNumber) {
         // 先检查缓存
         TelegramServiceImpl service = accountServices.get(phoneNumber);
-        if (service != null && service.isClientReady()) {
-            return service;
+        if (service != null) {
+            // 对于已认证的账号，需要检查客户端是否就绪
+            // 对于未认证的账号，只要服务实例存在就可以使用
+            Optional<TelegramSession> sessionOpt = sessionRepository.findByPhoneNumber(phoneNumber);
+            if (sessionOpt.isPresent()) {
+                String authState = sessionOpt.get().getAuthState();
+                if ("READY".equals(authState)) {
+                    // 已认证账号，需要客户端就绪
+                    if (service.isClientReady()) {
+                        return service;
+                    }
+                } else {
+                    // 未认证账号，服务实例存在即可
+                    return service;
+                }
+            } else if (service.isClientReady()) {
+                // 如果MongoDB中没有记录但客户端就绪，也可以使用
+                return service;
+            }
         }
         
         // 如果缓存中没有或服务不可用，尝试创建新的
         synchronized (this) {
             // 双重检查
             service = accountServices.get(phoneNumber);
-            if (service != null && service.isClientReady()) {
-                return service;
+            if (service != null) {
+                Optional<TelegramSession> sessionOpt = sessionRepository.findByPhoneNumber(phoneNumber);
+                if (sessionOpt.isPresent()) {
+                    String authState = sessionOpt.get().getAuthState();
+                    if ("READY".equals(authState)) {
+                        if (service.isClientReady()) {
+                            return service;
+                        }
+                    } else {
+                        return service;
+                    }
+                } else if (service.isClientReady()) {
+                    return service;
+                }
             }
             
             // 如果之前的服务存在但不可用，先清理
@@ -135,9 +168,26 @@ public class TelegramClientManager {
                 accountServices.remove(phoneNumber);
             }
             
-            // 创建新服务
+            // 根据账号状态选择合适的创建方法
             try {
-                service = createAccountService(phoneNumber);
+                Optional<TelegramSession> sessionOpt = sessionRepository.findByPhoneNumber(phoneNumber);
+                if (sessionOpt.isPresent()) {
+                    TelegramSession session = sessionOpt.get();
+                    String authState = session.getAuthState();
+                    
+                    if ("READY".equals(authState)) {
+                        // 已认证账号，使用标准方法
+                        service = createAccountService(phoneNumber);
+                    } else {
+                        // 未认证账号，使用新账号方法
+                        service = createAccountServiceForNewAccount(phoneNumber);
+                    }
+                } else {
+                    // MongoDB中没有记录，尝试使用新账号方法（可能正在创建中）
+                    log.warn("MongoDB中未找到账号记录，尝试创建新账号服务: {}", phoneNumber);
+                    service = createAccountServiceForNewAccount(phoneNumber);
+                }
+                
                 accountServices.put(phoneNumber, service);
                 return service;
             } catch (Exception e) {
@@ -149,7 +199,7 @@ public class TelegramClientManager {
     }
 
     /**
-     * 创建账号服务实例
+     * 创建账号服务实例（用于已认证的账号）
      */
     private TelegramServiceImpl createAccountService(String phoneNumber) {
         log.info("创建账号服务实例: {}", phoneNumber);
@@ -197,6 +247,59 @@ public class TelegramClientManager {
                 }
             }
             throw new RuntimeException("账号验证失败: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 创建新账号的服务实例（用于未认证的账号）
+     * 这个方法用于创建新账号，不需要等待客户端就绪
+     * 
+     * @param phoneNumber 手机号
+     * @return TelegramServiceImpl实例
+     */
+    public TelegramServiceImpl createAccountServiceForNewAccount(String phoneNumber) {
+        log.info("创建新账号服务实例: {}", phoneNumber);
+
+        // 从 MongoDB 获取账号信息（应该已由createAccount创建）
+        TelegramSession session = sessionRepository.findByPhoneNumber(phoneNumber)
+                .orElseThrow(() -> new RuntimeException("账号不存在: " + phoneNumber));
+
+        TelegramServiceImpl service = null;
+        try {
+            // 从 Spring 获取新的 TelegramServiceImpl 实例（原型作用域）
+            service = applicationContext.getBean(TelegramServiceImpl.class);
+
+            // 设置账号配置
+            // 对于新账号，apiId和apiHash可能为null（等待后续配置）
+            if (session.getApiId() != null) {
+                service.setRuntimeApiId(session.getApiId());
+            }
+            if (session.getApiHash() != null) {
+                service.setRuntimeApiHash(session.getApiHash());
+            }
+            // 设置手机号（这会自动设置账号特定的session路径）
+            service.setRuntimePhoneNumber(session.getPhoneNumber());
+
+            // 对于新账号，不立即初始化客户端，等待API配置后再初始化
+            // initializeAccount() 方法会处理初始化逻辑
+            
+            // 将服务实例添加到缓存
+            accountServices.put(phoneNumber, service);
+            
+            log.info("新账号服务实例创建成功: {}", phoneNumber);
+            return service;
+
+        } catch (Exception e) {
+            log.error("创建新账号服务实例失败: {}", phoneNumber, e);
+            if (service != null) {
+                try {
+                    service.shutdown();
+                } catch (Exception shutdownEx) {
+                    log.warn("关闭失败的service实例时出错: {}", phoneNumber, shutdownEx);
+                }
+            }
+            accountServices.remove(phoneNumber);
+            throw new RuntimeException("创建新账号失败: " + e.getMessage(), e);
         }
     }
 

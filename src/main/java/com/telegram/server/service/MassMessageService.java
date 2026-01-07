@@ -72,7 +72,7 @@ public class MassMessageService {
             throw new IllegalArgumentException("cron表达式不能为空");
         }
         validateCronExpression(cronExpression);
-        
+
         MassMessageTask task = MassMessageTask.builder()
                 .taskName(dto.getTaskName())
                 .messageContent(dto.getMessageContent())
@@ -183,15 +183,15 @@ public class MassMessageService {
                 log.warn("任务在执行过程中被删除，停止执行: taskId={}", taskId);
                 return;
             }
-            
+
             // 执行完成后状态变回PENDING，等待下次调度（所有任务都是定时任务）
             task.setStatus(MassMessageTask.TaskStatus.PENDING);
             taskRepository.save(task);
-            
+
             // 重新调度任务（更新 nextExecuteTime 并调度下次执行）
             taskScheduler.scheduleTask(task);
-            
-            log.info("定时群发任务执行完成，等待下次调度: taskId={}, nextExecuteTime={}", 
+
+            log.info("定时群发任务执行完成，等待下次调度: taskId={}, nextExecuteTime={}",
                     taskId, task.getNextExecuteTime());
 
         } catch (Exception e) {
@@ -251,22 +251,32 @@ public class MassMessageService {
     public void startTask(String taskId) {
         MassMessageTask task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("任务不存在: " + taskId));
-        
+
         // 检查任务状态
         if (task.getStatus() == MassMessageTask.TaskStatus.RUNNING) {
             log.warn("任务已经在运行中: taskId={}", taskId);
             return;
         }
-        
+
         if (task.getStatus() == MassMessageTask.TaskStatus.COMPLETED) {
             throw new RuntimeException("已完成的任务无法重新启动");
         }
-        
+
+        // 如果任务已经是PENDING状态，检查是否已经在调度器中
+        if (task.getStatus() == MassMessageTask.TaskStatus.PENDING) {
+            // 如果已经在调度器中，不需要重新调度
+            // scheduleTask会处理重复调度的情况（先取消再重新调度）
+            taskScheduler.scheduleTask(task);
+            log.info("定时任务已重新调度: taskId={}, cron={}", taskId, task.getCronExpression());
+            return;
+        }
+
+        // 如果任务状态是PAUSED或FAILED，需要重新启动
         // 所有任务都是定时任务，交给调度器管理
         task.setStatus(MassMessageTask.TaskStatus.PENDING);
         taskRepository.save(task);
         taskScheduler.scheduleTask(task);
-        log.info("定时任务已启动: taskId={}, cron={}", taskId, task.getCronExpression());
+        log.info("定时任务已启动: taskId={}, cron={}, 原状态={}", taskId, task.getCronExpression(), task.getStatus());
     }
 
     /**
@@ -275,45 +285,47 @@ public class MassMessageService {
     public void pauseTask(String taskId) {
         MassMessageTask task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("任务不存在: " + taskId));
-        
+
         // 检查任务状态
         if (task.getStatus() == MassMessageTask.TaskStatus.PAUSED) {
             log.warn("任务已经处于暂停状态: taskId={}", taskId);
             return;
         }
-        
+
         if (task.getStatus() == MassMessageTask.TaskStatus.COMPLETED) {
             throw new RuntimeException("已完成的任务无法暂停");
         }
-        
+
         if (task.getStatus() == MassMessageTask.TaskStatus.FAILED) {
             throw new RuntimeException("失败的任务无法暂停");
         }
-        
+
         // 如果任务正在运行，需要停止执行
         if (task.getStatus() == MassMessageTask.TaskStatus.RUNNING) {
             // 设置暂停标志，executeTask会检查并停止
             AtomicInteger executionFlag = taskExecutions.get(taskId);
             if (executionFlag != null) {
                 executionFlag.set(0);
-                log.info("已设置任务停止标志: taskId={}", taskId);
+                log.info("已设置任务停止标志，等待任务执行完成: taskId={}", taskId);
             } else {
                 log.warn("任务执行标志不存在，可能任务已经完成: taskId={}", taskId);
             }
         }
-        
-        // 取消定时任务调度
+
+        // 取消定时任务调度（无论任务状态如何，都要取消调度）
+        // 这样可以防止PENDING状态的任务被执行
         taskScheduler.cancelTask(taskId);
-        log.info("已取消定时任务调度: taskId={}", taskId);
-        
+
+        // 更新任务状态为暂停
         task.setStatus(MassMessageTask.TaskStatus.PAUSED);
         taskRepository.save(task);
-        log.info("暂停群发任务: taskId={}, taskName={}", taskId, task.getTaskName());
+
+        log.info("暂停群发任务: taskId={}, taskName={}, 原状态={}", taskId, task.getTaskName(), task.getStatus());
     }
 
     /**
      * 删除任务
-     * 
+     *
      * @param taskId 任务ID
      * @throws RuntimeException 如果任务不存在或正在运行中
      */
@@ -321,18 +333,18 @@ public class MassMessageService {
     public void deleteTask(String taskId) {
         MassMessageTask task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("任务不存在: " + taskId));
-        
+
         // 如果任务正在运行中，先停止执行
         if (task.getStatus() == MassMessageTask.TaskStatus.RUNNING) {
             log.warn("尝试删除运行中的任务，先停止执行: taskId={}", taskId);
-            
+
             // 设置暂停标志，停止正在执行的任务
             AtomicInteger executionFlag = taskExecutions.get(taskId);
             if (executionFlag != null) {
                 executionFlag.set(0);
                 log.info("已设置停止标志，等待任务执行停止: taskId={}", taskId);
             }
-            
+
             // 等待一小段时间让任务停止（最多等待3秒）
             int waitCount = 0;
             while (executionFlag != null && executionFlag.get() == 0 && waitCount < 30) {
@@ -345,13 +357,13 @@ public class MassMessageService {
                     break;
                 }
             }
-            
+
             // 如果任务仍在运行，抛出异常
             if (taskExecutions.containsKey(taskId)) {
                 throw new RuntimeException("任务正在执行中，无法立即删除。请稍后重试或先暂停任务。");
             }
         }
-        
+
         // 取消定时任务调度
         try {
             taskScheduler.cancelTask(taskId);
@@ -359,7 +371,7 @@ public class MassMessageService {
         } catch (Exception e) {
             log.warn("取消定时任务调度失败: taskId={}, error={}", taskId, e.getMessage());
         }
-        
+
         // 删除关联日志
         try {
             List<MassMessageLog> logs = logRepository.findByTaskId(taskId);
@@ -374,10 +386,10 @@ public class MassMessageService {
             log.error("删除任务关联日志失败: taskId={}, error={}", taskId, e.getMessage(), e);
             // 不抛出异常，继续删除任务，但记录错误日志
         }
-        
+
         // 从执行标志映射中移除（如果存在）
         taskExecutions.remove(taskId);
-        
+
         // 删除任务
         taskRepository.delete(task);
         log.info("删除群发任务完成: taskId={}, taskName={}", taskId, task.getTaskName());
@@ -389,7 +401,20 @@ public class MassMessageService {
     public TaskDetailVO getTaskDetail(String taskId) {
         MassMessageTask task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("任务不存在"));
 
-        List<MassMessageLog> logs = logRepository.findByTaskId(taskId);
+        // 检查任务是否正在执行中（异步执行可能导致数据库状态与实际状态不一致）
+        if (taskExecutions.containsKey(taskId)) {
+            // 如果任务正在执行，动态设置状态为RUNNING（不更新数据库）
+            if (task.getStatus() != MassMessageTask.TaskStatus.RUNNING) {
+                task.setStatus(MassMessageTask.TaskStatus.RUNNING);
+                log.debug("任务正在执行中，动态设置状态为RUNNING: taskId={}", taskId);
+            }
+        }
+        List<MassMessageLog> logs = new ArrayList<>();
+        try {
+            logs = logRepository.findByTaskId(taskId);
+        } catch (Exception e) {
+            log.info("获取任务日志失败：" + e);
+        }
 
         return new TaskDetailVO(task, logs);
     }
@@ -415,10 +440,10 @@ public class MassMessageService {
             throw new RuntimeException("消息内容包含敏感词");
         }
     }
-    
+
     /**
      * 验证Cron表达式
-     * 
+     *
      * @param cronExpression cron表达式
      */
     private void validateCronExpression(String cronExpression) {
@@ -455,9 +480,23 @@ public class MassMessageService {
 
             // 查询分页数据
             Page<MassMessageTask> sessionPage = taskRepository.findAll(pageable);
+
+            // 检查任务是否正在执行中（异步执行可能导致数据库状态与实际状态不一致）
+            // 注意：不更新数据库，只在返回时动态设置状态，避免频繁写数据库
+            List<MassMessageTask> tasks = sessionPage.getContent();
+            for (MassMessageTask task : tasks) {
+                // 如果任务在taskExecutions中，说明正在执行，状态应该是RUNNING
+                if (taskExecutions.containsKey(task.getId())) {
+                    // 动态设置状态为RUNNING（不更新数据库，只在内存中修改）
+                    // 这样可以确保前端显示的状态是准确的
+                    task.setStatus(MassMessageTask.TaskStatus.RUNNING);
+                    log.debug("任务正在执行中，动态设置状态为RUNNING: taskId={}", task.getId());
+                }
+            }
+
             // 构建分页响应
             return new PageResponseDTO<MassMessageTask>(
-                    sessionPage.getContent(),
+                    tasks,
                     pageNum, // 保持与前端一致的页码
                     pageSize,
                     sessionPage.getTotalElements()
@@ -503,29 +542,29 @@ public class MassMessageService {
             // 处理Telegram API错误
             int errorCode = e.getErrorCode();
             String errorMessage = e.getMessage();
-            
+
             // 根据错误代码提供更详细的错误信息
             String detailedMessage;
             if (errorCode == 400) {
                 if (errorMessage != null && errorMessage.contains("Chat not found")) {
-                    detailedMessage = String.format("聊天不存在或无法访问 (原始Chat ID: %s, 解析后: %d). 可能原因: 1) 聊天已被删除 2) 账号没有权限访问该聊天 3) Chat ID格式错误", 
+                    detailedMessage = String.format("聊天不存在或无法访问 (原始Chat ID: %s, 解析后: %d). 可能原因: 1) 聊天已被删除 2) 账号没有权限访问该聊天 3) Chat ID格式错误",
                             chatId, resolvedChatId);
                 } else {
                     detailedMessage = String.format("Telegram API错误 400: %s (Chat ID: %s, 解析后: %d)", errorMessage, chatId, resolvedChatId);
                 }
             } else if (errorCode == 403) {
-                detailedMessage = String.format("没有权限发送消息到该聊天 (Chat ID: %s, 解析后: %d). 可能原因: 1) 账号被踢出群组 2) 群组已禁止发送消息 3) 账号被限制", 
+                detailedMessage = String.format("没有权限发送消息到该聊天 (Chat ID: %s, 解析后: %d). 可能原因: 1) 账号被踢出群组 2) 群组已禁止发送消息 3) 账号被限制",
                         chatId, resolvedChatId);
             } else if (errorCode == 429) {
                 detailedMessage = String.format("发送频率过高，请稍后重试 (Chat ID: %s)", chatId);
             } else {
                 detailedMessage = String.format("Telegram API错误 %d: %s (Chat ID: %s, 解析后: %d)", errorCode, errorMessage, chatId, resolvedChatId);
             }
-            
-            log.error("Telegram API错误: code={}, message={}, chatId={}, resolvedChatId={}", 
+
+            log.error("Telegram API错误: code={}, message={}, chatId={}, resolvedChatId={}",
                     errorCode, errorMessage, chatId, resolvedChatId);
             throw new RuntimeException(detailedMessage, e);
-            
+
         } catch (NumberFormatException e) {
             throw new RuntimeException("无效的Chat ID格式: " + chatId, e);
         } catch (Exception e) {
@@ -535,27 +574,27 @@ public class MassMessageService {
                 TelegramError telegramError = (TelegramError) cause;
                 int errorCode = telegramError.getErrorCode();
                 String errorMessage = telegramError.getMessage();
-                
+
                 String detailedMessage;
                 if (errorCode == 400 && errorMessage != null && errorMessage.contains("Chat not found")) {
-                    detailedMessage = String.format("聊天不存在或无法访问 (Chat ID: %s, 解析后: %d). 可能原因: 1) 聊天已被删除 2) 账号没有权限访问该聊天 3) Chat ID格式错误", 
+                    detailedMessage = String.format("聊天不存在或无法访问 (Chat ID: %s, 解析后: %d). 可能原因: 1) 聊天已被删除 2) 账号没有权限访问该聊天 3) Chat ID格式错误",
                             chatId, resolvedChatId);
                 } else {
                     detailedMessage = String.format("Telegram API错误 %d: %s (Chat ID: %s, 解析后: %d)", errorCode, errorMessage, chatId, resolvedChatId);
                 }
-                
-                log.error("Telegram API错误 (包装异常): code={}, message={}, chatId={}, resolvedChatId={}", 
+
+                log.error("Telegram API错误 (包装异常): code={}, message={}, chatId={}, resolvedChatId={}",
                         errorCode, errorMessage, chatId, resolvedChatId);
                 throw new RuntimeException(detailedMessage, e);
             }
-            
+
             throw new RuntimeException("发送消息失败: " + e.getMessage(), e);
         }
     }
 
     /**
      * 解析不同类型的Chat ID
-     * 
+     * <p>
      * Telegram Chat ID 格式说明：
      * - 超级群组/频道：-100xxxxxxxxxx（完整的负数，如 -1003538112263）
      * - 基础群组：负数，如 -123456789

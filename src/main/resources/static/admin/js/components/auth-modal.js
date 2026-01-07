@@ -61,8 +61,13 @@ class AuthModal {
                         
                         <div id="auth-message"></div>
                         
-                        <!-- 步骤1: API配置 -->
+                        <!-- 步骤1: API配置和手机号 -->
                         <div class="form-step active" id="auth-form-step-1">
+                            <div class="form-group">
+                                <label for="auth-phoneNumber-step1">手机号:</label>
+                                <input type="tel" id="auth-phoneNumber-step1" placeholder="请输入手机号 (如: +8613812345678)">
+                                <div class="help-text">请包含国家代码，如中国号码以+86开头。用于标识要添加的账号</div>
+                            </div>
                             <div class="form-group">
                                 <label for="auth-appId">App ID:</label>
                                 <input type="text" id="auth-appId" placeholder="请输入Telegram App ID">
@@ -77,12 +82,12 @@ class AuthModal {
                             <button class="btn btn-secondary" id="auth-reset-session">重置Session</button>
                         </div>
                         
-                        <!-- 步骤2: 手机号 -->
+                        <!-- 步骤2: 手机号确认（已从步骤1获取，这里只显示） -->
                         <div class="form-step" id="auth-form-step-2">
                             <div class="form-group">
                                 <label for="auth-phoneNumber">手机号:</label>
-                                <input type="tel" id="auth-phoneNumber" placeholder="请输入手机号 (如: +8613812345678)">
-                                <div class="help-text">请包含国家代码，如中国号码以+86开头</div>
+                                <input type="tel" id="auth-phoneNumber" placeholder="请输入手机号 (如: +8613812345678)" readonly>
+                                <div class="help-text">手机号已从步骤1获取，如需修改请返回上一步</div>
                             </div>
                             <button class="btn btn-primary" id="auth-submit-phone">发送验证码</button>
                             <button class="btn btn-secondary" id="auth-previous-1">上一步</button>
@@ -306,8 +311,14 @@ class AuthModal {
      * 提交API配置
      */
     async submitApiConfig() {
+        const phoneNumber = document.getElementById('auth-phoneNumber-step1').value.trim();
         const appId = document.getElementById('auth-appId').value.trim();
         const appHash = document.getElementById('auth-appHash').value.trim();
+        
+        if (!phoneNumber) {
+            this.showMessage('请输入手机号', 'error');
+            return;
+        }
         
         if (!appId || !appHash) {
             this.showMessage('请填写完整的App ID和App Hash', 'error');
@@ -315,26 +326,55 @@ class AuthModal {
         }
         
         try {
-            // 先清理现有session
+            // 先创建账号（如果不存在）
+            this.showMessage('正在创建账号...', 'info');
+            try {
+                const createResponse = await fetch('/api/telegram/account/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ phoneNumber: phoneNumber })
+                });
+                const createResult = await createResponse.json();
+                if (!createResult.success && !createResult.message?.includes('已存在')) {
+                    console.warn('创建账号警告:', createResult.message);
+                }
+            } catch (e) {
+                console.warn('创建账号时出错（可能已存在）:', e);
+            }
+            
+            // 清理现有session（如果存在）
             this.showMessage('正在清理现有session...', 'info');
-            await fetch('/api/telegram/session/clear', {
-                method: 'DELETE'
-            });
+            try {
+                await fetch('/api/telegram/session/clear?phoneNumber=' + encodeURIComponent(phoneNumber), {
+                    method: 'DELETE'
+                });
+            } catch (e) {
+                console.warn('清理session时出错（可能不存在）:', e);
+            }
             
             // 等待一秒确保清理完成
             await new Promise(resolve => setTimeout(resolve, 1000));
             
+            // 配置API（必须包含phoneNumber）
             const response = await fetch('/api/telegram/config', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ appId: parseInt(appId), appHash: appHash })
+                body: JSON.stringify({ 
+                    phoneNumber: phoneNumber,
+                    appId: parseInt(appId), 
+                    appHash: appHash 
+                })
             });
             
             const result = await response.json();
             if (result.success) {
                 this.showMessage('API配置成功', 'success');
+                // 将手机号同步到步骤2的输入框
+                document.getElementById('auth-phoneNumber').value = phoneNumber;
                 this.nextStep();
             } else {
                 this.showMessage(result.message || 'API配置失败', 'error');
@@ -348,9 +388,16 @@ class AuthModal {
      * 重置Session
      */
     async resetSession() {
+        const phoneNumber = document.getElementById('auth-phoneNumber-step1').value.trim();
+        
+        if (!phoneNumber) {
+            this.showMessage('请先输入手机号', 'error');
+            return;
+        }
+        
         try {
             this.showMessage('正在重置Session...', 'info');
-            const response = await fetch('/api/telegram/session/clear', {
+            const response = await fetch('/api/telegram/session/clear?phoneNumber=' + encodeURIComponent(phoneNumber), {
                 method: 'DELETE'
             });
             
@@ -373,7 +420,11 @@ class AuthModal {
      * 提交手机号
      */
     async submitPhoneNumber() {
-        const phoneNumber = document.getElementById('auth-phoneNumber').value.trim();
+        // 从步骤1或步骤2获取手机号
+        let phoneNumber = document.getElementById('auth-phoneNumber').value.trim();
+        if (!phoneNumber) {
+            phoneNumber = document.getElementById('auth-phoneNumber-step1').value.trim();
+        }
         
         if (!phoneNumber) {
             this.showMessage('请输入手机号', 'error');
@@ -381,8 +432,8 @@ class AuthModal {
         }
         
         try {
-            // 先检查当前状态
-            const statusResponse = await fetch('/api/telegram/status');
+            // 先检查当前状态（需要包含phoneNumber参数）
+            const statusResponse = await fetch('/api/telegram/status?phoneNumber=' + encodeURIComponent(phoneNumber));
             const status = await statusResponse.text();
             
             if (status.includes('AuthorizationStateWaitCode')) {
@@ -423,13 +474,27 @@ class AuthModal {
             return;
         }
         
+        // 获取手机号
+        let phoneNumber = document.getElementById('auth-phoneNumber').value.trim();
+        if (!phoneNumber) {
+            phoneNumber = document.getElementById('auth-phoneNumber-step1').value.trim();
+        }
+        
+        if (!phoneNumber) {
+            this.showMessage('手机号不能为空', 'error');
+            return;
+        }
+        
         try {
             const response = await fetch('/api/telegram/auth/code', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ code: code })
+                body: JSON.stringify({ 
+                    phoneNumber: phoneNumber,
+                    code: code 
+                })
             });
             
             const result = await response.json();
@@ -460,13 +525,27 @@ class AuthModal {
             return;
         }
         
+        // 获取手机号
+        let phoneNumber = document.getElementById('auth-phoneNumber').value.trim();
+        if (!phoneNumber) {
+            phoneNumber = document.getElementById('auth-phoneNumber-step1').value.trim();
+        }
+        
+        if (!phoneNumber) {
+            this.showMessage('手机号不能为空', 'error');
+            return;
+        }
+        
         try {
             const response = await fetch('/api/telegram/auth/password', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ password: password })
+                body: JSON.stringify({ 
+                    phoneNumber: phoneNumber,
+                    password: password 
+                })
             });
             
             const result = await response.json();
@@ -493,8 +572,15 @@ class AuthModal {
      * 检查当前授权状态并跳转到正确步骤
      */
     async checkCurrentStatus() {
+        // 获取手机号（如果已输入）
+        const phoneNumber = document.getElementById('auth-phoneNumber-step1')?.value.trim();
+        
         try {
-            const response = await fetch('/api/telegram/status');
+            // 如果有手机号，使用它查询状态；否则查询默认状态
+            const url = phoneNumber 
+                ? '/api/telegram/status?phoneNumber=' + encodeURIComponent(phoneNumber)
+                : '/api/telegram/status';
+            const response = await fetch(url);
             const status = await response.text();
             
             if (status.includes('AuthorizationStateWaitCode')) {

@@ -373,12 +373,12 @@ const TelegramAdmin = {
                                                 `<button class="btn btn-sm btn-warning" onclick="TelegramAdmin.pauseTask('${task.id}')" title="暂停任务">
                                                     ⏸️
                                                 </button>` :
-                                                task.status === 'PAUSED' || task.status === 'PENDING' ?
+                                                task.status === 'PAUSED' || task.status === 'PENDING' || task.status === 'FAILED' ?
                                                 `<button class="btn btn-sm btn-success" onclick="TelegramAdmin.startTask('${task.id}')" title="启动任务">
                                                     ▶️
                                                 </button>` : ''
                                             }
-                                            ${task.status !== 'RUNNING' ? 
+                                            ${task.status !== 'RUNNING' && task.status !== 'COMPLETED' ? 
                                                 `<button class="btn btn-sm btn-danger" onclick="TelegramAdmin.deleteTask('${task.id}')" title="删除任务">
                                                     🗑️
                                                 </button>` : ''
@@ -419,6 +419,7 @@ const TelegramAdmin = {
         try {
             const response = await API.massMessage.getTaskDetail(taskId);
             if (response.success && response.data) {
+                // TaskDetailVO包含task和logs字段
                 const task = response.data.task || response.data;
                 const logs = response.data.logs || [];
                 

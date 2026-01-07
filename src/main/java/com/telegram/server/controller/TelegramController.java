@@ -43,6 +43,12 @@ public class TelegramController {
     private final TelegramClientManager clientManager;
     
     /**
+     * Session管理服务
+     * 用于创建和管理MongoDB中的session记录
+     */
+    private final com.telegram.server.service.ITelegramSessionService sessionService;
+    
+    /**
      * 获取指定账号的服务实例
      * 
      * @param phoneNumber 手机号
@@ -79,15 +85,52 @@ public class TelegramController {
                 return ResponseEntity.badRequest().body(response);
             }
             
-            // 通过TelegramClientManager获取账号服务（如果不存在会自动创建）
-            TelegramServiceImpl service = getAccountService(phoneNumber.trim());
+            phoneNumber = phoneNumber.trim();
             
-            // 初始化账号
-            service.initializeAccount();
+            // 先检查账号是否已存在
+            boolean accountExists = sessionService.getSessionByPhoneNumber(phoneNumber).isPresent();
+            
+            if (accountExists) {
+                // 账号已存在，直接获取服务实例
+                try {
+                    TelegramServiceImpl service = getAccountService(phoneNumber);
+                    response.put("success", true);
+                    response.put("message", "账号已存在");
+                    response.put("status", service.getAuthStatus());
+                    return ResponseEntity.ok(response);
+                } catch (Exception e) {
+                    // 如果获取服务失败，继续创建新账号流程
+                    response.put("success", false);
+                    response.put("message", "账号已存在但无法获取服务: " + e.getMessage());
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+                }
+            }
+            
+            // 账号不存在，创建新的session记录（状态为WAITING，等待API配置）
+            // 注意：此时还没有API配置，所以apiId和apiHash可以为null
+            sessionService.createOrUpdateSession(phoneNumber, null, null);
+            
+            // 设置初始状态为WAITING（等待API配置和认证）
+            sessionService.updateAuthState(phoneNumber, "WAITING");
+            
+            // 通过TelegramClientManager创建账号服务实例（用于未认证账号）
+            TelegramServiceImpl service = clientManager.createAccountServiceForNewAccount(phoneNumber);
+            
+            // 注意：对于新账号，不需要调用initializeAccount()，因为：
+            // 1. 新账号还没有API配置，无法初始化客户端
+            // 2. initializeAccount()会重置配置，这会清除我们刚刚设置的phoneNumber
+            // 3. 新账号只需要创建session记录即可，等待后续API配置
             
             response.put("success", true);
             response.put("message", "账号创建成功，请配置API信息");
-            response.put("status", service.getAuthStatus());
+            
+            // 获取账号状态（可能还没有客户端，所以状态可能是WAITING）
+            try {
+                response.put("status", service.getAuthStatus());
+            } catch (Exception e) {
+                // 如果获取状态失败（可能因为客户端未初始化），返回默认状态
+                response.put("status", "WAITING");
+            }
             
             return ResponseEntity.ok(response);
             
@@ -127,7 +170,15 @@ public class TelegramController {
                 return ResponseEntity.badRequest().body(response);
             }
             
-            TelegramServiceImpl service = getAccountService(phoneNumber.trim());
+            phoneNumber = phoneNumber.trim();
+            
+            // 先更新MongoDB中的API配置（如果账号不存在则创建）
+            sessionService.createOrUpdateSession(phoneNumber, appId, appHash);
+            
+            // 获取账号服务实例（会根据账号状态选择合适的创建方法）
+            TelegramServiceImpl service = getAccountService(phoneNumber);
+            
+            // 配置API
             boolean success = service.configApi(appId, appHash);
             if (success) {
                 response.put("success", true);
@@ -272,7 +323,7 @@ public class TelegramController {
      * @return ResponseEntity包含详细的认证状态信息
      */
     @GetMapping("/auth/status")
-    public ResponseEntity<Map<String, Object>> getAuthStatus(@RequestParam(required = false) String phoneNumber) {
+    public ResponseEntity<Map<String, Object>> getAuthStatus(@RequestParam(value = "phoneNumber", required = false) String phoneNumber) {
         Map<String, Object> response = new HashMap<>();
         try {
             if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
@@ -364,7 +415,7 @@ public class TelegramController {
      */
     @DeleteMapping("/session/clear")
     public ResponseEntity<Map<String, Object>> clearSession(
-            @RequestParam(required = false) String phoneNumber,
+            @RequestParam(value = "phoneNumber", required = false) String phoneNumber,
             @RequestBody(required = false) Map<String, Object> request) {
         Map<String, Object> response = new HashMap<>();
         try {
@@ -379,11 +430,33 @@ public class TelegramController {
                 return ResponseEntity.badRequest().body(response);
             }
             
-            TelegramServiceImpl service = getAccountService(phoneNumber.trim());
-            service.clearSession();
+            phoneNumber = phoneNumber.trim();
+            
+            // 检查账号是否存在
+            if (!sessionService.getSessionByPhoneNumber(phoneNumber).isPresent()) {
+                response.put("success", false);
+                response.put("message", "账号不存在");
+                return ResponseEntity.ok(response);
+            }
+            
+            // 尝试获取服务实例（如果存在）
+            // 对于WAITING状态的账号，可能还没有服务实例，这是正常的
+            try {
+                TelegramServiceImpl service = getAccountService(phoneNumber);
+                if (service != null) {
+                    service.clearSession();
+                }
+            } catch (Exception e) {
+                // 如果获取服务失败（可能是WAITING状态），继续清理MongoDB数据
+                // 这是正常的，因为WAITING状态的账号可能还没有服务实例
+            }
+            
+            // 清理MongoDB中的session数据
+            sessionService.deactivateSession(phoneNumber);
+            sessionService.updateAuthState(phoneNumber, "WAITING");
             
             // 从管理器中移除该账号服务
-            clientManager.removeAccountService(phoneNumber.trim());
+            clientManager.removeAccountService(phoneNumber);
             
             response.put("success", true);
             response.put("message", "Session数据已清理");
@@ -404,7 +477,7 @@ public class TelegramController {
      * @return ResponseEntity包含服务状态信息和时间戳
      */
     @GetMapping("/status")
-    public ResponseEntity<Map<String, Object>> getStatus(@RequestParam(required = false) String phoneNumber) {
+    public ResponseEntity<Map<String, Object>> getStatus(@RequestParam(value = "phoneNumber", required = false) String phoneNumber) {
         Map<String, Object> status = new HashMap<>();
         status.put("service", "Magic Telegram Server");
         status.put("status", "running");
@@ -461,7 +534,7 @@ public class TelegramController {
      * @since 2025-01-20
      */
     @GetMapping("/session/check")
-    public ResponseEntity<Map<String, Object>> checkSessionData(@RequestParam(required = false) String phoneNumber) {
+    public ResponseEntity<Map<String, Object>> checkSessionData(@RequestParam(value = "phoneNumber", required = false) String phoneNumber) {
         Map<String, Object> response = new HashMap<>();
         try {
             if (phoneNumber == null || phoneNumber.trim().isEmpty()) {

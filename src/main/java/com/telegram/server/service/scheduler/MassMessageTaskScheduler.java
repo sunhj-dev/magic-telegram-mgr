@@ -162,12 +162,16 @@ public class MassMessageTaskScheduler {
                     .orElseThrow(() -> new RuntimeException("任务不存在: " + taskId));
             
             // 检查任务状态
-            if (task.getStatus() != MassMessageTask.TaskStatus.PENDING && 
-                task.getStatus() != MassMessageTask.TaskStatus.PAUSED) {
-                log.warn("任务状态不是待执行或已暂停，跳过执行: taskId={}, status={}", 
+            // 只有PENDING状态的任务才能执行
+            // PAUSED状态的任务应该跳过执行，不重新调度
+            if (task.getStatus() == MassMessageTask.TaskStatus.PAUSED) {
+                log.debug("任务已暂停，跳过执行: taskId={}", taskId);
+                return;
+            }
+            
+            if (task.getStatus() != MassMessageTask.TaskStatus.PENDING) {
+                log.warn("任务状态不是待执行，跳过执行: taskId={}, status={}", 
                         taskId, task.getStatus());
-                // 重新调度下次执行
-                rescheduleTask(task);
                 return;
             }
             
@@ -182,42 +186,19 @@ public class MassMessageTaskScheduler {
             
         } catch (Exception e) {
             log.error("执行定时任务失败: taskId={}", taskId, e);
-            // 即使执行失败，也需要重新调度
+            // 执行失败时，将任务状态设置为FAILED，不重新调度
+            // 用户需要手动重新启动任务
             try {
                 MassMessageTask task = taskRepository.findById(taskId).orElse(null);
-                if (task != null) {
-                    rescheduleTask(task);
+                if (task != null && task.getStatus() == MassMessageTask.TaskStatus.RUNNING) {
+                    task.setStatus(MassMessageTask.TaskStatus.FAILED);
+                    task.setErrorMessage("执行失败: " + e.getMessage());
+                    taskRepository.save(task);
+                    log.error("任务执行失败，已标记为FAILED: taskId={}", taskId);
                 }
             } catch (Exception ex) {
-                log.error("重新调度任务失败: taskId={}", taskId, ex);
+                log.error("更新任务状态失败: taskId={}", taskId, ex);
             }
-        }
-    }
-    
-    /**
-     * 重新调度任务（用于定时任务的重复执行）
-     * 
-     * @param task 任务实体
-     */
-    private void rescheduleTask(MassMessageTask task) {
-        try {
-            // 计算下次执行时间
-            LocalDateTime nextExecuteTime = calculateNextExecuteTime(task.getCronExpression());
-            task.setNextExecuteTime(nextExecuteTime);
-            taskRepository.save(task);
-            
-            // 重新调度任务（使用CronTrigger会自动计算下次执行时间）
-            ScheduledFuture<?> future = taskScheduler.schedule(
-                    () -> executeScheduledTask(task.getId()),
-                    createTrigger(task.getCronExpression())
-            );
-            
-            scheduledTasks.put(task.getId(), future);
-            
-            log.info("任务已重新调度: taskId={}, cron={}, nextExecuteTime={}", 
-                    task.getId(), task.getCronExpression(), nextExecuteTime);
-        } catch (Exception e) {
-            log.error("重新调度任务失败: taskId={}, error={}", task.getId(), e.getMessage(), e);
         }
     }
     

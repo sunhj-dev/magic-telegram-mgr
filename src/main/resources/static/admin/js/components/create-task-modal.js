@@ -208,7 +208,8 @@ class CreateTaskModal {
             const select = document.getElementById('task-account');
 
             if (response.success && response.data && response.data.content && response.data.content.length > 0) {
-                const readyAccounts = response.data.content.filter(account => account.authStatus === 'READY');
+                // const readyAccounts = response.data.content.filter(account => account.authStatus === 'READY');
+                const readyAccounts = response.data.content;
 
                 if (readyAccounts.length === 0) {
                     select.innerHTML = '<option value="">暂无已认证账号</option>';
