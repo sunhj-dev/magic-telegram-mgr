@@ -63,18 +63,18 @@ public class MassMessageTaskScheduler {
         
         try {
             // 1. 加载所有待执行的定时任务（PENDING状态）
-            List<MassMessageTask> pendingTasks = taskRepository.findByStatusAndCronExpressionIsNotNull(
-                    MassMessageTask.TaskStatus.PENDING);
+//            List<MassMessageTask> pendingTasks = taskRepository.findByStatusAndCronExpressionIsNotNull(
+//                    MassMessageTask.TaskStatus.PENDING);
             
-            log.info("发现 {} 个待执行的定时任务", pendingTasks.size());
-            
-            for (MassMessageTask task : pendingTasks) {
-                try {
-                    scheduleTask(task);
-                } catch (Exception e) {
-                    log.error("调度任务失败: taskId={}, error={}", task.getId(), e.getMessage(), e);
-                }
-            }
+//            log.info("发现 {} 个待执行的定时任务", pendingTasks.size());
+//
+//            for (MassMessageTask task : pendingTasks) {
+//                try {
+//                    scheduleTask(task);
+//                } catch (Exception e) {
+//                    log.error("调度任务失败: taskId={}, error={}", task.getId(), e.getMessage(), e);
+//                }
+//            }
             
             // 2. 恢复所有运行中的任务（RUNNING状态）
             // 所有任务都有cron表达式，直接恢复调度
@@ -87,8 +87,8 @@ public class MassMessageTaskScheduler {
             for (MassMessageTask task : runningTasks) {
                 try {
                     // 将状态改为PENDING，然后重新调度
-                    task.setStatus(MassMessageTask.TaskStatus.PENDING);
-                    taskRepository.save(task);
+//                    task.setStatus(MassMessageTask.TaskStatus.PENDING);
+//                    taskRepository.save(task);
                     scheduleTask(task);
                     log.info("恢复定时任务: taskId={}, cron={}", task.getId(), task.getCronExpression());
                     recoveredCount++;
@@ -169,8 +169,8 @@ public class MassMessageTaskScheduler {
                 return;
             }
             
-            if (task.getStatus() != MassMessageTask.TaskStatus.PENDING) {
-                log.warn("任务状态不是待执行，跳过执行: taskId={}, status={}", 
+            if (task.getStatus() != MassMessageTask.TaskStatus.RUNNING) {
+                log.warn("任务状态不是运行，跳过执行: taskId={}, status={}",
                         taskId, task.getStatus());
                 return;
             }

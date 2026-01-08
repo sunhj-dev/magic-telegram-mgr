@@ -1,0 +1,33 @@
+{
+  "name": "magic-telegram-admin",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "webpack-dev-server --config build/webpack.dev.js --progress --hot",
+    "build": "webpack --config build/webpack.prod.js",
+    "lint": "echo 'no lint configured'"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "core-js": "^3.39.0",
+    "element-ui": "^2.15.14",
+    "vue": "2.6.14",
+    "vue-router": "^3.6.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "babel-loader": "^9.2.1",
+    "css-loader": "^7.1.2",
+    "file-loader": "^6.2.0",
+    "html-webpack-plugin": "^5.6.3",
+    "style-loader": "^4.0.0",
+    "vue-loader": "^15.11.1",
+    "vue-style-loader": "^4.1.3",
+    "vue-template-compiler": "2.6.14",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.1.0",
+    "webpack-merge": "^6.0.1"
+  }
+}

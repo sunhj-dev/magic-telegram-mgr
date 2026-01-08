@@ -15,6 +15,7 @@ import it.tdlight.client.TelegramError;
 import it.tdlight.jni.TdApi;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.annotation.PostConstruct;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -50,7 +51,6 @@ public class MassMessageService {
     private final MassMessageTaskScheduler taskScheduler;
 
     private final Map<String, AtomicInteger> taskExecutions = new ConcurrentHashMap<>();
-
 
     /**
      * 创建群发任务
@@ -185,7 +185,7 @@ public class MassMessageService {
             }
 
             // 执行完成后状态变回PENDING，等待下次调度（所有任务都是定时任务）
-            task.setStatus(MassMessageTask.TaskStatus.PENDING);
+//            task.setStatus(MassMessageTask.TaskStatus.PENDING);
             taskRepository.save(task);
 
             // 重新调度任务（更新 nextExecuteTime 并调度下次执行）
@@ -266,6 +266,8 @@ public class MassMessageService {
         if (task.getStatus() == MassMessageTask.TaskStatus.PENDING) {
             // 如果已经在调度器中，不需要重新调度
             // scheduleTask会处理重复调度的情况（先取消再重新调度）
+            task.setStatus(MassMessageTask.TaskStatus.RUNNING);
+            taskRepository.save(task);
             taskScheduler.scheduleTask(task);
             log.info("定时任务已重新调度: taskId={}, cron={}", taskId, task.getCronExpression());
             return;
