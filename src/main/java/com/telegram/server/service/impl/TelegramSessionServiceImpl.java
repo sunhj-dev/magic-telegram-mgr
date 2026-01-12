@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
@@ -60,6 +61,17 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
 
     @Autowired
     private GridFSStorageManager gridfsStorageManager;
+
+    @Autowired(required = false)
+    private com.telegram.server.repository.MassMessageTaskRepository massMessageTaskRepository;
+
+    @Lazy
+    @Autowired(required = false)
+    private com.telegram.server.service.MassMessageService massMessageService;
+
+    @Lazy
+    @Autowired(required = false)
+    private com.telegram.server.service.scheduler.MassMessageTaskScheduler massMessageTaskScheduler;
 
     /**
      * Session路径配置
@@ -1053,7 +1065,60 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
             if (sessionOpt.isPresent()) {
                 TelegramSession session = sessionOpt.get();
                 
-                // 清理本地session文件
+                // 1. 先删除该账号关联的所有群发任务
+                if (massMessageTaskRepository != null && massMessageService != null) {
+                    try {
+                        List<com.telegram.server.entity.MassMessageTask> relatedTasks = 
+                            massMessageTaskRepository.findByTargetAccountPhone(accountId);
+                        
+                        if (!relatedTasks.isEmpty()) {
+                            logger.info("发现账号{}关联的{}个群发任务，开始删除...", accountId, relatedTasks.size());
+                            
+                            for (com.telegram.server.entity.MassMessageTask task : relatedTasks) {
+                                try {
+                                    String taskId = task.getId();
+                                    
+                                    // 1.1 先取消调度器中的任务（防止调度器继续触发执行）
+                                    if (massMessageTaskScheduler != null) {
+                                        try {
+                                            massMessageTaskScheduler.cancelTask(taskId);
+                                            logger.info("已取消调度器中的任务: taskId={}", taskId);
+                                        } catch (Exception e) {
+                                            logger.warn("取消调度器任务失败: taskId={}, error={}", taskId, e.getMessage());
+                                        }
+                                    }
+                                    
+                                    // 1.2 如果任务正在运行，先暂停（停止正在执行的异步任务）
+                                    if (task.getStatus() == com.telegram.server.entity.MassMessageTask.TaskStatus.RUNNING) {
+                                        logger.info("暂停运行中的任务: taskId={}, taskName={}", taskId, task.getTaskName());
+                                        try {
+                                            massMessageService.pauseTask(taskId);
+                                        } catch (Exception e) {
+                                            logger.warn("暂停任务失败: taskId={}, error={}", taskId, e.getMessage());
+                                            // 继续执行删除，即使暂停失败
+                                        }
+                                    }
+                                    
+                                    // 1.3 删除任务（包括取消调度、删除日志等）
+                                    // 注意：deleteTask 内部也会调用 cancelTask，但我们已经提前取消了，这里是双重保险
+                                    logger.info("删除任务: taskId={}, taskName={}", taskId, task.getTaskName());
+                                    massMessageService.deleteTask(taskId);
+                                } catch (Exception e) {
+                                    logger.error("删除账号{}的关联任务失败: taskId={}, error={}", 
+                                        accountId, task.getId(), e.getMessage(), e);
+                                    // 继续删除其他任务，不因单个任务失败而中断
+                                }
+                            }
+                            
+                            logger.info("账号{}关联的群发任务已全部删除", accountId);
+                        }
+                    } catch (Exception e) {
+                        logger.error("查询账号{}的关联群发任务时出错: {}", accountId, e.getMessage(), e);
+                        // 即使删除任务失败，也继续删除账号本身
+                    }
+                }
+                
+                // 2. 清理本地session文件
                 try {
                     logger.info("正在清理账号{}的本地session文件...", accountId);
                     deleteLocalSessionFiles(accountId);
@@ -1063,14 +1128,14 @@ public class TelegramSessionServiceImpl implements ITelegramSessionService {
                     // 继续执行删除操作，即使清理文件失败
                 }
                 
-                // 使用GridFSStorageManager删除session数据（包括GridFS文件）
+                // 3. 使用GridFSStorageManager删除session数据（包括GridFS文件）
                 try {
                     gridfsStorageManager.deleteSession(session.getId());
                 } catch (Exception e) {
                     logger.warn("删除账号{}的GridFS数据时出现错误: {}", accountId, e.getMessage());
                 }
                 
-                // 删除session记录
+                // 4. 删除session记录
                 sessionRepository.delete(session);
                 logger.info("成功删除账号: {}", accountId);
                 return true;

@@ -25,7 +25,19 @@ public class MassMessageProperties {
     private int maxTargetsPerTask = 100;
 
     /** 每日单账号发送上限 */
-    private int dailyLimitPerAccount = 50;
+    private int dailyLimitPerAccount = 100;
+
+    /** 同群组最小发送间隔（秒），避免短时间内重复发送到同一群组 */
+    private int minIntervalPerChat = 60;
+
+    /** 429错误重试次数 */
+    private int retryOn429 = 3;
+
+    /** 429错误退避倍数 */
+    private double backoffMultiplier = 2.0;
+
+    /** 最大延迟时间（毫秒） */
+    private int maxDelay = 60000;
 
     /** 启用内容审核 */
     private boolean enableModeration = true;

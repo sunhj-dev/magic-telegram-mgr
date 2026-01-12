@@ -1,7 +1,10 @@
 <template>
   <div>
-    <h2 style="margin-bottom: 16px;">系统设置</h2>
-    <el-card>
+    <div class="page-header">
+      <span class="page-title">系统设置</span>
+    </div>
+    <div class="page-body">
+      <el-card>
       <el-form label-width="140px">
         <el-form-item label="自动清理过期消息">
           <el-switch v-model="autoCleanup" />
@@ -14,6 +17,7 @@
         </el-form-item>
       </el-form>
     </el-card>
+    </div>
   </div>
 </template>
 
@@ -33,3 +37,6 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+</style>

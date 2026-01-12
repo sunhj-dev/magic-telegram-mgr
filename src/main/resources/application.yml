@@ -2,6 +2,8 @@
 spring:
   application:
     name: magic-telegram-server
+  main:
+    allow-circular-references: true
   
   # MongoDB配置
   data:
@@ -42,7 +44,12 @@ server:
 telegram:
   mass-message:
     enabled: true
-    rateLimitDelay: 5000
+    rateLimitDelay: 5000  # 基础延迟（毫秒），建议5000-10000
+    dailyLimitPerAccount: 100  # 每日单账号发送上限
+    minIntervalPerChat: 60  # 同群组最小发送间隔（秒），建议60-300
+    retryOn429: 3  # 429错误重试次数
+    backoffMultiplier: 2.0  # 退避倍数
+    maxDelay: 60000  # 最大延迟时间（毫秒）
   # TDLight客户端配置
   tdlight:
     api-id: ${TELEGRAM_API_ID:}

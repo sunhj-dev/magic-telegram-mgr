@@ -51,6 +51,9 @@ public class MassMessageService {
     private final MassMessageTaskScheduler taskScheduler;
 
     private final Map<String, AtomicInteger> taskExecutions = new ConcurrentHashMap<>();
+    
+    // 记录每个群组的最后发送时间（用于同群组间隔限制，仅作为缓存加速查询）
+    private final Map<String, LocalDateTime> chatLastSendTimeCache = new ConcurrentHashMap<>();
 
     /**
      * 创建群发任务
@@ -148,14 +151,35 @@ public class MassMessageService {
 
                 String targetChatId = task.getTargetChatIds().get(i);
                 try {
-                    // 随机延迟
+                    // 检查每日发送限制（同一账号在同一群组中的发送量）
+                    if (!checkDailyLimit(task.getTargetAccountPhone(), targetChatId)) {
+                        String errorMsg = "账号 " + task.getTargetAccountPhone() + " 在群组 " + targetChatId + " 今日发送量已达上限 (" + properties.getDailyLimitPerAccount() + "条)";
+                        log.warn(errorMsg);
+                        batchLogs.add(createLog(task, targetChatId, MassMessageLog.SendStatus.FAILED, errorMsg));
+                        task.setFailureCount(task.getFailureCount() + 1);
+                        continue;
+                    }
+
+                    // 检查同群组发送间隔
+                    if (!checkChatInterval(targetChatId)) {
+                        String errorMsg = "群组 " + targetChatId + " 发送间隔过短，需等待 " + properties.getMinIntervalPerChat() + " 秒";
+                        log.warn(errorMsg);
+                        batchLogs.add(createLog(task, targetChatId, MassMessageLog.SendStatus.FAILED, errorMsg));
+                        task.setFailureCount(task.getFailureCount() + 1);
+                        continue;
+                    }
+
+                    // 随机延迟（避免固定间隔）
                     int delay = properties.getRateLimitDelay() + new Random().nextInt(properties.getRateLimitDelay());
                     log.debug("发送延迟: {}ms", delay);
                     TimeUnit.MILLISECONDS.sleep(delay);
 
-                    // 发送消息
-                    sendMessageToChat(client, targetChatId, task);
+                    // 发送消息（带重试机制）
+                    sendMessageToChatWithRetry(client, targetChatId, task);
 
+                    // 更新发送记录
+                    updateSendRecords(task.getTargetAccountPhone(), targetChatId);
+                    
                     batchLogs.add(createLog(task, targetChatId, MassMessageLog.SendStatus.SUCCESS, null));
                     task.setSuccessCount(task.getSuccessCount() + 1);
 
@@ -164,6 +188,16 @@ public class MassMessageService {
                     String errorMessage = e.getMessage();
                     if (errorMessage != null && errorMessage.contains("Chat not found")) {
                         errorMessage = "聊天不存在或无法访问: " + targetChatId;
+                    } else if (errorMessage != null && errorMessage.contains("FLOOD_WAIT")) {
+                        // 提取等待时间
+                        int waitSeconds = extractFloodWaitSeconds(errorMessage);
+                        errorMessage = String.format("发送频率过高，需要等待 %d 秒", waitSeconds);
+                        // 自动等待
+                        try {
+                            TimeUnit.SECONDS.sleep(Math.min(waitSeconds, 60)); // 最多等待60秒
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
                     }
                     log.error("发送失败 to {}: {}", targetChatId, errorMessage);
                     batchLogs.add(createLog(task, targetChatId, MassMessageLog.SendStatus.FAILED, errorMessage));
@@ -690,13 +724,141 @@ public class MassMessageService {
     /**
      * 创建日志实体
      */
+    /**
+     * 检查每日发送限制（基于数据库查询，服务重启后仍然有效）
+     * 检查同一账号在同一群组中的每日发送数量
+     * 
+     * @param accountPhone 账号手机号
+     * @param chatId 群组ID
+     * @return 是否在限制范围内
+     */
+    private boolean checkDailyLimit(String accountPhone, String chatId) {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
+            LocalDateTime endOfDay = now.toLocalDate().atTime(23, 59, 59);
+            
+            // 从数据库查询该账号在该群组中今日成功发送的数量
+            long todayCount = logRepository.countByAccountPhoneAndChatIdAndStatusAndSentTimeBetween(
+                    accountPhone, chatId, MassMessageLog.SendStatus.SUCCESS, startOfDay, endOfDay);
+            
+            boolean withinLimit = todayCount < properties.getDailyLimitPerAccount();
+            
+            if (!withinLimit) {
+                log.warn("账号 {} 在群组 {} 今日发送量已达上限: {}/{}", accountPhone, chatId, todayCount, properties.getDailyLimitPerAccount());
+            }
+            
+            return withinLimit;
+        } catch (Exception e) {
+            log.error("检查每日发送限制失败: accountPhone={}, chatId={}, error={}", accountPhone, chatId, e.getMessage(), e);
+            // 出错时允许发送，避免阻塞正常流程
+            return true;
+        }
+    }
+
+    /**
+     * 检查同群组发送间隔（基于数据库查询，服务重启后仍然有效）
+     */
+    private boolean checkChatInterval(String chatId) {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime minIntervalTime = now.minusSeconds(properties.getMinIntervalPerChat());
+            
+            // 先检查缓存（加速查询）
+            LocalDateTime cachedTime = chatLastSendTimeCache.get(chatId);
+            if (cachedTime != null && cachedTime.isAfter(minIntervalTime)) {
+                return false;
+            }
+            
+            // 从数据库查询该群组在最小间隔时间内的最后一条成功发送记录
+            List<MassMessageLog> recentLogs = logRepository.findTop1ByChatIdAndStatusAndSentTimeAfterOrderBySentTimeDesc(
+                    chatId, MassMessageLog.SendStatus.SUCCESS, minIntervalTime);
+            
+            if (!recentLogs.isEmpty()) {
+                // 更新缓存
+                chatLastSendTimeCache.put(chatId, recentLogs.get(0).getSentTime());
+                return false;
+            }
+            
+            return true;
+        } catch (Exception e) {
+            log.error("检查群组发送间隔失败: chatId={}, error={}", chatId, e.getMessage(), e);
+            // 出错时允许发送，避免阻塞正常流程
+            return true;
+        }
+    }
+
+    /**
+     * 更新发送记录（更新缓存）
+     */
+    private void updateSendRecords(String accountPhone, String chatId) {
+        LocalDateTime now = LocalDateTime.now();
+        // 更新群组最后发送时间缓存（数据库记录会在createLog时保存）
+        chatLastSendTimeCache.put(chatId, now);
+    }
+
+    /**
+     * 提取FLOOD_WAIT错误中的等待秒数
+     */
+    private int extractFloodWaitSeconds(String errorMessage) {
+        try {
+            // 尝试从错误消息中提取数字
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d+)");
+            java.util.regex.Matcher matcher = pattern.matcher(errorMessage);
+            if (matcher.find()) {
+                return Integer.parseInt(matcher.group(1));
+            }
+        } catch (Exception e) {
+            log.warn("无法提取FLOOD_WAIT等待时间", e);
+        }
+        return 10; // 默认等待10秒
+    }
+
+    /**
+     * 带重试机制的消息发送
+     */
+    private void sendMessageToChatWithRetry(SimpleTelegramClient client, String chatId, MassMessageTask task) throws Exception {
+        int retryCount = 0;
+        int baseDelay = properties.getRateLimitDelay();
+        
+        while (retryCount <= properties.getRetryOn429()) {
+            try {
+                sendMessageToChat(client, chatId, task);
+                return; // 发送成功，退出
+            } catch (Exception e) {
+                String errorMsg = e.getMessage();
+                
+                // 如果是429错误，进行退避重试
+                if (errorMsg != null && (errorMsg.contains("429") || errorMsg.contains("FLOOD_WAIT") || errorMsg.contains("Too Many Requests"))) {
+                    retryCount++;
+                    if (retryCount > properties.getRetryOn429()) {
+                        throw new RuntimeException("发送失败：达到最大重试次数，发送频率过高", e);
+                    }
+                    
+                    // 指数退避
+                    int delay = (int) Math.min(baseDelay * Math.pow(properties.getBackoffMultiplier(), retryCount - 1), properties.getMaxDelay());
+                    int waitSeconds = extractFloodWaitSeconds(errorMsg);
+                    delay = Math.max(delay, waitSeconds * 1000); // 使用Telegram返回的等待时间或计算的延迟
+                    
+                    log.warn("遇到429错误，等待 {}ms 后重试 (第{}/{}次)", delay, retryCount, properties.getRetryOn429());
+                    TimeUnit.MILLISECONDS.sleep(delay);
+                } else {
+                    // 其他错误直接抛出
+                    throw e;
+                }
+            }
+        }
+    }
+
     private MassMessageLog createLog(MassMessageTask task, String chatId,
                                      MassMessageLog.SendStatus status, String errorMsg) {
         return MassMessageLog.builder()
                 .taskId(task.getId())
                 .chatId(chatId)
+                .accountPhone(task.getTargetAccountPhone())  // 添加账号手机号，用于统计每日发送量
                 .status(status)
                 .errorMessage(errorMsg)
+                .sentTime(LocalDateTime.now())
                 .build();
     }
 

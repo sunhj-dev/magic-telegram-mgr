@@ -12,7 +12,7 @@ Vue.use(Router);
 export default new Router({
   mode: 'history',
   routes: [
-    { path: '/', redirect: '/dashboard' },
+    { path: '/', redirect: '/accounts' },
     { path: '/dashboard', name: 'Dashboard', component: Dashboard },
     { path: '/accounts', name: 'Accounts', component: Accounts },
     { path: '/messages', name: 'Messages', component: Messages },

@@ -15,7 +15,7 @@ body {
   width: 250px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  /* box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1); */
 }
 
 .sidebar-header {
@@ -29,17 +29,52 @@ body {
 }
 
 .top-header {
-  background: white;
+  background: linear-gradient(to right, #fff, #005DE9);
   padding: 0 30px;
-  height: 70px;
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .page-container {
   background: #f5f5f5;
-  padding: 30px;
+  /* padding: 8px; */
+  padding-left: 12px;
+  padding-top: 10px;
+  padding-right: 20px;
+}
+
+/* 统一页面头部样式 */
+.page-header {
+  margin-bottom: 10px;
+}
+
+.page-title {
+  font-size: 14px;
+  color: darkgray;
+}
+
+/* 统一页面主体样式 */
+.page-body {
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 统一表单类弹窗的字体风格，和“任务详情”弹窗保持一致 */
+.common-form-dialog .el-dialog__body {
+  font-size: 15px;
+}
+
+.common-form-dialog .el-form-item__label {
+  font-size: 15px;
+}
+
+.common-form-dialog .el-input__inner,
+.common-form-dialog .el-textarea__inner {
+  font-size: 15px;
 }
 

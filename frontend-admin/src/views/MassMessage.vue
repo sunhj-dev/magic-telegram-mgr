@@ -1,13 +1,14 @@
 <template>
   <div>
     <div class="page-header">
-      <h2>消息群发</h2>
-      <el-button type="success" @click="dialogVisible = true">新建群发任务</el-button>
+      <span class="page-title">消息群发</span>
     </div>
+    <div class="page-body">
+      <div style="margin-bottom: 16px;">
+        <el-button type="primary" @click="dialogVisible = true">新建群发任务</el-button>
+      </div>
 
-<!--   s-->
-
-    <el-table :data="tasks" border stripe v-loading="loading">
+      <el-table :data="tasks" border stripe v-loading="loading">
       <el-table-column prop="taskName" label="任务名称" />
       <el-table-column label="类型" width="80">
         <template slot-scope="scope">
@@ -67,19 +68,94 @@
       </el-table-column>
     </el-table>
 
-    <div class="pagination-wrapper">
-      <el-pagination
-        background
-        layout="prev, pager, next, jumper"
-        :page-size="pageSize"
-        :total="total"
-        :current-page.sync="page"
-        @current-change="fetchTasks"
-      />
+      <div class="pagination-wrapper">
+        <el-pagination
+          background
+          layout="prev, pager, next, jumper"
+          :page-size="pageSize"
+          :total="total"
+          :current-page.sync="page"
+          @current-change="fetchTasks"
+        />
+      </div>
     </div>
 
-    <el-dialog title="新建群发任务" :visible.sync="dialogVisible" width="650px">
+    <el-dialog
+      title="新建群发任务"
+      :visible.sync="dialogVisible"
+      width="650px"
+      class="common-form-dialog"
+    >
       <create-task-form @success="onCreateSuccess" />
+    </el-dialog>
+
+    <!-- 任务详情弹窗 -->
+    <el-dialog
+      title="📋 任务详情"
+      :visible.sync="detailDialogVisible"
+      width="800px"
+      class="task-detail-dialog"
+    >
+      <div v-if="currentTaskDetail" class="task-detail-content">
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="任务名称" :span="2">
+            <span style="font-weight: 600; color: #303133; font-size: 16px;">
+              {{ currentTaskDetail.task.taskName || '-' }}
+            </span>
+          </el-descriptions-item>
+          <el-descriptions-item label="发送账号">
+            <span style="color: #606266;">{{ currentTaskDetail.task.targetAccountPhone || '-' }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="任务状态">
+            <el-tag :type="getStatusTagType(currentTaskDetail.task)" size="small">
+              {{ statusText(currentTaskDetail.task) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="消息内容" :span="2">
+            <div style="min-height: 80px; max-height: 200px; overflow-y: auto; padding: 8px 8px 8px 0; background: #f5f7fa; border-radius: 4px; white-space: pre-wrap; word-break: break-word; line-height: 1.6; text-align: left;">{{ currentTaskDetail.task.messageContent || '-' }}</div>
+          </el-descriptions-item>
+          <el-descriptions-item label="目标Chat IDs" :span="2">
+            <div style="max-height: 150px; overflow-y: auto; background: #f5f7fa; padding: 8px; border-radius: 4px;">
+              <div
+                v-for="(chatId, index) in (currentTaskDetail.task.targetChatIds || [])"
+                :key="index"
+                style="padding: 2px 0; color: #606266; font-family: monospace; font-size: 13px; line-height: 1.4;"
+              >
+                {{ chatId }}
+              </div>
+              <div v-if="!currentTaskDetail.task.targetChatIds || currentTaskDetail.task.targetChatIds.length === 0" style="color: #909399; font-size: 14px;">
+                暂无目标
+              </div>
+            </div>
+          </el-descriptions-item>
+          <el-descriptions-item label="Cron表达式">
+            <code style="background: #f5f7fa; padding: 3px 6px; border-radius: 3px; font-size: 13px;">
+              {{ currentTaskDetail.task.cronExpression || '立即执行' }}
+            </code>
+          </el-descriptions-item>
+          <el-descriptions-item label="成功/失败数量">
+            <span style="color: #67C23A; font-weight: 500;">{{ currentTaskDetail.task.successCount || 0 }}</span>
+            <span style="color: #909399; margin: 0 4px;">/</span>
+            <span style="color: #F56C6C; font-weight: 500;">{{ currentTaskDetail.task.failureCount || 0 }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">
+            <span style="color: #909399;">{{ formatDate(currentTaskDetail.task.createdTime) }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="最后执行时间">
+            <span style="color: #909399;">{{ formatDate(currentTaskDetail.task.lastExecuteTime) || '-' }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item v-if="currentTaskDetail.task.errorMessage" label="错误信息" :span="2">
+            <span style="color: #F56C6C;">{{ currentTaskDetail.task.errorMessage }}</span>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <div v-else style="text-align: center; padding: 40px;">
+        <i class="el-icon-loading" style="font-size: 24px; color: #409EFF; animation: rotating 2s linear infinite;"></i>
+        <p style="margin-top: 12px; color: #909399;">加载中...</p>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+      </span>
     </el-dialog>
   </div>
 </template>
@@ -100,6 +176,8 @@ export default {
       pageSize: 10,
       total: 0,
       dialogVisible: false,
+      detailDialogVisible: false,
+      currentTaskDetail: null,
       cards: [
         { key: 'total', label: '总任务数' },
         { key: 'running', label: '运行中' },
@@ -199,29 +277,39 @@ export default {
       }
     },
     async viewDetail(row) {
-      const res = await api.massMessage.getTaskDetail(row.id);
-      if (!res.success) {
-        this.$message.error(res.message || '获取详情失败');
-        return;
+      try {
+        this.detailDialogVisible = true;
+        this.currentTaskDetail = null; // 先清空，显示加载状态
+        
+        const res = await api.massMessage.getTaskDetail(row.id);
+        if (!res.success) {
+          this.$message.error(res.message || '获取详情失败');
+          this.detailDialogVisible = false;
+          return;
+        }
+        
+        // 设置详情数据
+        this.currentTaskDetail = {
+          task: res.data.task || res.data,
+          logs: res.data.logs || []
+        };
+      } catch (e) {
+        this.$message.error('获取任务详情失败: ' + (e.message || '未知错误'));
+        this.detailDialogVisible = false;
       }
-      const task = res.data.task || res.data;
-      const logs = res.data.logs || [];
-      this.$alert(
-        `<div style="max-height: 400px; overflow: auto; text-align:left;">
-          <p><b>任务名称：</b>${task.taskName || '-'}</p>
-          <p><b>发送账号：</b>${task.targetAccountPhone || '-'}</p>
-          <p><b>消息类型：</b>${this.typeText(task.messageType)}</p>
-          <p><b>状态：</b>${this.statusText(task.status)}</p>
-          <p><b>目标数量：</b>${(task.targetChatIds || []).length}</p>
-          <p><b>成功/失败：</b>${task.successCount || 0}/${task.failureCount || 0}</p>
-          <p><b>创建时间：</b>${this.formatDate(task.createdTime)}</p>
-          <p><b>最后执行时间：</b>${this.formatDate(task.lastExecuteTime)}</p>
-          <hr />
-          <p><b>日志条数：</b>${logs.length}</p>
-        </div>`,
-        '任务详情',
-        { dangerouslyUseHTMLString: true }
-      );
+    },
+    getStatusTagType(task) {
+      const s = task.status;
+      if (s === 'PENDING' && task.cronExpression) {
+        return 'info';
+      }
+      const map = {
+        RUNNING: 'primary',
+        COMPLETED: 'success',
+        FAILED: 'danger',
+        PAUSED: 'info'
+      };
+      return map[s] || 'warning';
     },
     onCreateSuccess() {
       this.dialogVisible = false;
@@ -232,12 +320,6 @@ export default {
 </script>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
 
 .stats-row {
   margin-bottom: 16px;
@@ -260,5 +342,41 @@ export default {
 .pagination-wrapper {
   margin-top: 16px;
   text-align: right;
+}
+
+.task-detail-content {
+  padding: 5px 0;
+}
+
+.task-detail-dialog .el-dialog__body {
+  padding: 15px 20px;
+}
+
+.task-detail-dialog .el-descriptions {
+  margin-bottom: 0;
+}
+
+.task-detail-dialog .el-descriptions__label {
+  font-weight: 600;
+  color: #606266;
+  font-size: 15px;
+}
+
+.task-detail-dialog .el-descriptions__content {
+  font-size: 15px;
+  text-align: left;
+}
+
+.task-detail-dialog .el-descriptions-item {
+  padding-bottom: 8px;
+}
+
+.task-detail-dialog .el-descriptions-item:last-child {
+  padding-bottom: 0;
+}
+
+@keyframes rotating {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

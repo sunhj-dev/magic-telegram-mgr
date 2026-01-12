@@ -127,7 +127,7 @@ public class WebAdminController {
      * @return ResponseEntity 包含账号详细信息
      */
     @GetMapping("/accounts/{accountId}")
-    public ResponseEntity<Map<String, Object>> getAccountDetail(@PathVariable String accountId) {
+    public ResponseEntity<Map<String, Object>> getAccountDetail(@PathVariable("accountId") String accountId) {
         return getAccountDetailInternal(accountId);
     }
     
@@ -182,7 +182,7 @@ public class WebAdminController {
      * @return ResponseEntity 包含删除操作结果
      */
     @DeleteMapping("/accounts/{accountId}")
-    public ResponseEntity<Map<String, Object>> deleteAccount(@PathVariable String accountId) {
+    public ResponseEntity<Map<String, Object>> deleteAccount(@PathVariable("accountId") String accountId) {
         Map<String, Object> response = new HashMap<>();
         
         try {
@@ -280,7 +280,7 @@ public class WebAdminController {
      * @return ResponseEntity 包含消息详细信息
      */
     @GetMapping("/messages/{messageId}")
-    public ResponseEntity<Map<String, Object>> getMessageDetail(@PathVariable String messageId) {
+    public ResponseEntity<Map<String, Object>> getMessageDetail(@PathVariable("messageId") String messageId) {
         return getMessageDetailInternal(messageId);
     }
     
@@ -335,7 +335,7 @@ public class WebAdminController {
      * @return ResponseEntity 包含图片的Base64数据
      */
     @GetMapping("/messages/{messageId}/image")
-    public ResponseEntity<Map<String, Object>> getMessageImage(@PathVariable String messageId) {
+    public ResponseEntity<Map<String, Object>> getMessageImage(@PathVariable("messageId") String messageId) {
         return getMessageImageInternal(messageId);
     }
     
@@ -391,7 +391,7 @@ public class WebAdminController {
      * @return 图片内容响应
      */
     @GetMapping("/messages/{messageId}/image/raw")
-    public ResponseEntity<?> getMessageImageRaw(@PathVariable String messageId) {
+    public ResponseEntity<?> getMessageImageRaw(@PathVariable("messageId") String messageId) {
         try {
             Optional<MessageDTO> messageOpt = messageService.getMessageById(messageId);
             MessageDTO message = messageOpt.orElse(null);
@@ -495,7 +495,7 @@ public class WebAdminController {
      * @date 2025-01-21
      */
     @GetMapping("/accounts/{accountId}/session-files")
-    public ResponseEntity<Map<String, Object>> downloadSessionFiles(@PathVariable String accountId) {
+    public ResponseEntity<Map<String, Object>> downloadSessionFiles(@PathVariable("accountId") String accountId) {
         Map<String, Object> response = new HashMap<>();
         
         try {

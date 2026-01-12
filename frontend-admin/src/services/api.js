@@ -27,6 +27,9 @@ const api = {
     },
     create(data) {
       return http.post('/telegram/account/create', data);
+    },
+    delete(accountId) {
+      return http.delete(`/admin/accounts/${accountId}`);
     }
   },
   messages: {

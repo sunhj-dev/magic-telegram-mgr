@@ -1,8 +1,10 @@
 <template>
   <div>
     <div class="page-header">
-      <h2>消息管理</h2>
-      <div>
+      <span class="page-title">消息管理</span>
+    </div>
+    <div class="page-body">
+      <div style="margin-bottom: 16px;">
         <el-input
           v-model="search"
           placeholder="搜索消息..."
@@ -12,9 +14,8 @@
         />
         <el-button type="primary" size="small" @click="fetchMessages(1)">搜索</el-button>
       </div>
-    </div>
 
-    <el-table :data="messages" border stripe v-loading="loading">
+      <el-table :data="messages" border stripe v-loading="loading">
       <el-table-column prop="messageId" label="消息ID" width="120" />
       <el-table-column prop="chatTitle" label="群组" />
       <el-table-column prop="senderName" label="发送者" />
@@ -35,15 +36,16 @@
       </el-table-column>
     </el-table>
 
-    <div class="pagination-wrapper">
-      <el-pagination
-        background
-        layout="prev, pager, next, jumper"
-        :page-size="pageSize"
-        :total="total"
-        :current-page.sync="page"
-        @current-change="fetchMessages"
-      />
+      <div class="pagination-wrapper">
+        <el-pagination
+          background
+          layout="prev, pager, next, jumper"
+          :page-size="pageSize"
+          :total="total"
+          :current-page.sync="page"
+          @current-change="fetchMessages"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -105,12 +107,6 @@ export default {
 </script>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
 
 .pagination-wrapper {
   margin-top: 16px;

@@ -1334,6 +1334,8 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param update 新聊天更新
      */
     private void handleNewChat(TdApi.UpdateNewChat update) {
+        // 暂时屏蔽消息监听
+        return;
         // logger.info("发现新聊天: {} (ID: {})", update.chat.title, update.chat.id);
     }
 
@@ -1342,7 +1344,9 @@ public class TelegramServiceImpl implements ITelegramService {
      * @param update 聊天最后消息更新
      */
     private void handleChatLastMessage(TdApi.UpdateChatLastMessage update) {
-        logger.debug("聊天 {} 的最后一条消息已更新", update.chatId);
+        // 暂时屏蔽消息监听
+        return;
+        // logger.debug("聊天 {} 的最后一条消息已更新", update.chatId);
     }
 
     /**
@@ -2219,10 +2223,11 @@ public class TelegramServiceImpl implements ITelegramService {
      */
     private SimpleTelegramClientBuilder buildTelegramClient(TDLibSettings settings) {
         SimpleTelegramClientBuilder clientBuilder = clientFactory.builder(settings);
-        clientBuilder.addUpdateHandler(TdApi.UpdateNewMessage.class, this::handleNewMessage);
+        // 暂时屏蔽所有消息监听
+        // clientBuilder.addUpdateHandler(TdApi.UpdateNewMessage.class, this::handleNewMessage);
         clientBuilder.addUpdateHandler(TdApi.UpdateAuthorizationState.class, this::handleAuthorizationState);
-        clientBuilder.addUpdateHandler(TdApi.UpdateNewChat.class, this::handleNewChat);
-        clientBuilder.addUpdateHandler(TdApi.UpdateChatLastMessage.class, this::handleChatLastMessage);
+        // clientBuilder.addUpdateHandler(TdApi.UpdateNewChat.class, this::handleNewChat);
+        // clientBuilder.addUpdateHandler(TdApi.UpdateChatLastMessage.class, this::handleChatLastMessage);
         clientBuilder.addUpdateHandler(TdApi.UpdateConnectionState.class, this::handleConnectionState);
         clientBuilder.addCommandHandler("quit", this::handleQuitCommand);
         return clientBuilder;
@@ -2474,10 +2479,11 @@ public class TelegramServiceImpl implements ITelegramService {
      * @date 2025-01-21
      */
     private void addUpdateHandlers(SimpleTelegramClientBuilder clientBuilder) {
-        clientBuilder.addUpdateHandler(TdApi.UpdateNewMessage.class, this::handleNewMessage);
+        // 暂时屏蔽所有消息监听
+        // clientBuilder.addUpdateHandler(TdApi.UpdateNewMessage.class, this::handleNewMessage);
         clientBuilder.addUpdateHandler(TdApi.UpdateAuthorizationState.class, this::handleAuthorizationState);
-        clientBuilder.addUpdateHandler(TdApi.UpdateNewChat.class, this::handleNewChat);
-        clientBuilder.addUpdateHandler(TdApi.UpdateChatLastMessage.class, this::handleChatLastMessage);
+        // clientBuilder.addUpdateHandler(TdApi.UpdateNewChat.class, this::handleNewChat);
+        // clientBuilder.addUpdateHandler(TdApi.UpdateChatLastMessage.class, this::handleChatLastMessage);
         clientBuilder.addUpdateHandler(TdApi.UpdateConnectionState.class, this::handleConnectionState);
         clientBuilder.addCommandHandler("quit", this::handleQuitCommand);
     }

@@ -14,7 +14,9 @@ import java.time.LocalDateTime;
  * @author sunhj
  */
 @Document(collection = "mass_message_logs")
-@CompoundIndex(name = "task_id_idx", def = "{'taskId': 1, 'createdTime': -1}")
+@CompoundIndex(name = "task_id_idx", def = "{'taskId': 1, 'sentTime': -1}")
+@CompoundIndex(name = "account_chat_date_idx", def = "{'accountPhone': 1, 'chatId': 1, 'sentTime': -1}")
+@CompoundIndex(name = "chat_time_idx", def = "{'chatId': 1, 'sentTime': -1}")
 @Data
 @Builder
 public class MassMessageLog {
@@ -33,6 +35,11 @@ public class MassMessageLog {
      * 目标Chat ID
      */
     private String chatId;
+
+    /**
+     * 发送账号手机号（用于统计每日发送量）
+     */
+    private String accountPhone;
 
     /**
      * 群组/频道名称（如果可用）

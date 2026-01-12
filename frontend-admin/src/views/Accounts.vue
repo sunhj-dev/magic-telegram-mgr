@@ -1,11 +1,14 @@
 <template>
   <div class="accounts-page">
     <div class="page-header">
-      <h2>账号管理</h2>
-      <el-button type="primary" @click="showAuthDialog">添加账号</el-button>
+      <span class="page-title">账号管理</span>
     </div>
+    <div class="page-body">
+      <div style="margin-bottom: 16px;">
+        <el-button type="primary" @click="showAuthDialog">添加账号</el-button>
+      </div>
 
-    <el-table
+      <el-table
       :data="accounts"
       border
       stripe
@@ -30,22 +33,38 @@
           {{ formatDate(scope.row.createdAt) }}
         </template>
       </el-table-column>
-    </el-table>
+      <el-table-column label="操作" width="120">
+        <template slot-scope="scope">
+          <el-button
+            type="text"
+            size="mini"
+            style="color: #f56c6c;"
+            @click="deleteAccount(scope.row)"
+          >删除</el-button>
+        </template>
+      </el-table-column>
+      </el-table>
 
-    <div class="summary-text">当前账号数：{{ accounts.length }}</div>
+      <div class="summary-text">当前账号数：{{ accounts.length }}</div>
 
-    <div class="pagination-wrapper">
-      <el-pagination
-        background
-        layout="prev, pager, next, jumper"
-        :page-size="pageSize"
-        :total="total"
-        :current-page.sync="page"
-        @current-change="fetchAccounts"
-      />
+      <div class="pagination-wrapper">
+        <el-pagination
+          background
+          layout="prev, pager, next, jumper"
+          :page-size="pageSize"
+          :total="total"
+          :current-page.sync="page"
+          @current-change="fetchAccounts"
+        />
+      </div>
     </div>
 
-    <el-dialog title="添加账号" :visible.sync="authVisible" width="520px">
+    <el-dialog
+      title="添加账号"
+      :visible.sync="authVisible"
+      width="650px"
+      class="common-form-dialog"
+    >
       <auth-modal-form @success="onAuthSuccess" />
     </el-dialog>
   </div>
@@ -103,6 +122,31 @@ export default {
     formatDate(v) {
       if (!v) return '-';
       return new Date(v).toLocaleString();
+    },
+    deleteAccount(row) {
+      this.$confirm(
+        `确认删除账号 ${row.phoneNumber} 吗？此操作将删除该账号的所有数据，且不可恢复！`,
+        '删除确认',
+        {
+          type: 'warning',
+          confirmButtonText: '确认删除',
+          cancelButtonText: '取消'
+        }
+      ).then(async () => {
+        try {
+          const res = await api.accounts.delete(row.id);
+          if (res.success) {
+            this.$message.success('账号删除成功');
+            this.fetchAccounts(this.page);
+          } else {
+            this.$message.error(res.message || '删除失败');
+          }
+        } catch (e) {
+          this.$message.error('删除账号失败: ' + (e.message || '未知错误'));
+        }
+      }).catch(() => {
+        // 用户取消删除，不需要处理
+      });
     }
   }
 };
@@ -113,12 +157,6 @@ export default {
   padding-right: 16px;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
 
 .summary-text {
   margin: 12px 0;
